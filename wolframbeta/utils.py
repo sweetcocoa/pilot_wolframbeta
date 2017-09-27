@@ -16,7 +16,8 @@ def calculate_ops(a, ops, b):
 
 
 def debugger(*s):
-    print(s)
+    # print(s)
+    pass
 
 
 def is_string_add(tok):

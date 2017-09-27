@@ -145,6 +145,7 @@ class Term(Nonterminal):
             term = term_tail.get_term()
             factor_child = term.get_factor()
             factor_child.calculate()
+            debugger("cal :", self.value, multi.value, factor_child.value)
             self.value = calculate_ops(self.value, multi.value, factor_child.value)
             term_tail = term.get_term_tail()
 
@@ -212,6 +213,10 @@ class Factor(Nonterminal):
             factor.parse()
             self.add_childs(factor)
 
+        factor_tail = FactorTail(self.tokenmanager)
+        factor_tail.parse()
+        self.add_childs(factor_tail)
+
     def calculate(self):
         """
         args : None
@@ -226,8 +231,10 @@ class Factor(Nonterminal):
         if l1_type == Value:
             if l1_child.value == '-':
                 # - <factor>
+
                 factor = self.childs[1]
                 factor.calculate()
+                debugger("minus sign : ", factor.value)
                 self.value = -factor.value
             elif l1_child.value == '(':
                 expr = self.childs[1]
@@ -236,12 +243,15 @@ class Factor(Nonterminal):
             else:
                 # number
                 self.value = l1_child.value
-        factor_tail = FactorTail(self.tokenmanager)
+        factor_tail = self.childs[-1]
         if factor_tail.has_childs():
             power = factor_tail.get_power()
             factor_child = factor_tail.get_factor()
             factor_child.calculate()
             self.value = calculate_ops(self.value, power.value, factor_child.value)
+            debugger("power cal : ", self.value, power.value, factor_child.value)
+        debugger("factor value : ", self.value)
+
 
 class FactorTail(Nonterminal):
     """
@@ -266,3 +276,16 @@ class FactorTail(Nonterminal):
 
     def get_factor(self):
         return self.childs[1]
+
+
+tree_depth = 0
+def print_tree(nonterm):
+    global tree_depth
+    local_depth = tree_depth
+    if type(nonterm) != Value:
+        for child in nonterm.childs:
+            if type(child) != Value:
+                print_tree(child)
+            else:
+                debugger(child.value)
+
