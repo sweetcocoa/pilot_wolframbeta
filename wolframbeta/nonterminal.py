@@ -1,6 +1,6 @@
 from wolframbeta.utils import *
 from wolframbeta.terminal import Value
-
+from wolframbeta.config import *
 """
 
 <expr> := <term> <expr_tail>
@@ -41,6 +41,12 @@ class Nonterminal:
 
     def has_childs(self):
         if len(self.childs) > 0:
+            return True
+        else:
+            return False
+
+    def value_is_float(self):
+        if type(self.value) == float:
             return True
         else:
             return False
@@ -186,7 +192,7 @@ class Factor(Nonterminal):
     := ( <expr> )
     := -<Factor>
     := Number
-    := <function>
+    := <function> = <func><params>
     """
     def __init__(self, tokenmanager):
         super(self.__class__, self).__init__(tokenmanager)
@@ -213,6 +219,10 @@ class Factor(Nonterminal):
             factor.parse()
             self.add_childs(factor)
 
+        elif token in BUILTIN_FUNCTIONS:
+            func = Func(self.tokenmanager, token)
+            func.parse()
+            self.add_childs(func)
         factor_tail = FactorTail(self.tokenmanager)
         factor_tail.parse()
         self.add_childs(factor_tail)
@@ -243,6 +253,11 @@ class Factor(Nonterminal):
             else:
                 # number
                 self.value = l1_child.value
+        else:
+            func = self.childs[0]
+            func.calculate()
+            self.value = func.value
+
         factor_tail = self.childs[-1]
         if factor_tail.has_childs():
             power = factor_tail.get_power()
@@ -276,6 +291,150 @@ class FactorTail(Nonterminal):
 
     def get_factor(self):
         return self.childs[1]
+
+
+class Func(Nonterminal):
+    """
+    <function>
+    := 'sin' | 'cos' | 'tan' | 'cot' | 'sec' | 'cosec' | 'log' | 'exp' | 'pow'
+    := user_defined_function
+    """
+    def __init__(self, tokenmanager, name=None):
+        super(self.__class__, self).__init__(tokenmanager)
+        if name is None:
+            debugger("Function's name is not defined")
+        self.name = name
+
+    def parse(self):
+        params = Params(self.tokenmanager)
+        params.parse()
+        self.add_childs(params)
+        # print(params.get_Params())
+
+    def calculate(self):
+        debugger("functions name : ", self.name)
+        params = self.get_params()
+        params_list = params.get_params_list()
+        debugger("params : ", params_list)
+
+        value = self.func_calculate(self.name, params_list)
+        self.value = value
+
+        #self.value = 0
+
+    def get_params(self):
+        return self.childs[0]
+
+    def func_calculate(self, func_name, param_list):
+        ret = None
+        if func_name in BUILTIN_FUNCTIONS:
+            ret = self._builtin_function_calculate(func_name, param_list)
+
+        return ret
+
+    def _builtin_function_calculate(self, func_name, params_list):
+        """
+        :param func_name:
+        :param parmas_list: Value object whose value is float
+        :return: calculated functions like "sin", "cos", "pow", "exp"
+        """
+        if func_name == "sin":
+            if len(params_list) != 1:
+                raise_error("'sin' expected one parameters, but", len(params_list), "is received")
+            radian = params_list[0]
+            radian.calculate()
+            if is_float_type(radian.value):
+                return math.sin(radian.value)
+            else:
+                # arg of sin is expr
+                pass
+
+        elif func_name == "pow":
+            if len(params_list) != 2:
+                raise_error("'pow' expected one parameters, but", len(params_list),"is received")
+            base = params_list[0]
+            exponent = params_list[1]
+            base.calculate()
+            exponent.calculate()
+            if is_float_type(base.value) and is_float_type(exponent.value):
+                return math.pow(base.value, exponent.value)
+            else:
+                #  base or exponent is expr
+                pass
+        return None
+
+class Params(Nonterminal):
+    """
+    < param > = ( < expr > < param_tail > )
+    < param_tail > =, < expr > | empty
+    """
+    def __init__(self, tokenmanager):
+        super(self.__class__, self).__init__(tokenmanager)
+        self.params_list = []
+
+    def parse(self):
+        token = self.tokenmanager.get_next_token()
+        # token == '('
+        self.add_childs(Value("parenthesis", token))
+        expr = Expr(self.tokenmanager)
+        expr.parse()
+        self.add_childs(expr)
+        param_tail = ParamTail(self.tokenmanager)
+        param_tail.parse()
+        self.add_childs(param_tail)
+        token = self.tokenmanager.get_next_token()  # ')' token should exists
+        self.add_childs(Value("parenthesis", token))
+
+    def get_param_tail(self):
+        return self.childs[2]
+
+    def get_expr(self):
+        return self.childs[1]
+
+    def get_params_list(self):
+        """
+        :return: list object which contains parameter objects
+        """
+        if len(self.params_list) > 0:
+            return self.params_list
+
+        self.params_list.append(self.get_expr())
+        param_tail = self.get_param_tail()
+        while param_tail.has_childs():
+            expr = param_tail.get_expr()
+            self.params_list.append(expr)
+            param_tail = param_tail.get_param_tail()
+
+        return self.params_list
+
+
+class ParamTail(Nonterminal):
+    """
+    < param > = ( < expr > < param_tail > )
+    < param_tail > =, < expr > <param_tail> | empty
+    """
+    def __init__(self, tokenmanager):
+        super(self.__class__, self).__init__(tokenmanager)
+
+    def parse(self):
+        if self.tokenmanager.has_next_token():
+            token = self.tokenmanager.show_next_token()
+            if token == ',':
+                token = self.tokenmanager.get_next_token()
+                comma = Value("comma", token)
+                self.add_childs(comma)
+                expr = Expr(self.tokenmanager)
+                expr.parse()
+                self.add_childs(expr)
+                param_tail = ParamTail(self.tokenmanager)
+                param_tail.parse()
+                self.add_childs(param_tail)
+
+    def get_expr(self):
+        return self.childs[1]
+
+    def get_param_tail(self):
+        return self.childs[2]
 
 
 tree_depth = 0

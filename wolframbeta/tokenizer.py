@@ -9,22 +9,38 @@ class TokenManager:
         return : 숫자, 연산자가 분리된 리스트 (infix)
         """
         NUMBERS = "0123456789."
+
+        CHARS = "abcdefghijklmnopqrstuvwxyz"
+        CHARS += CHARS.upper()
+        CHARS += "_"
+
+        OPS = "+-*/^(),"
+
         tokens = []
         number_buff = ""
+        string_buff = ""
         str_expression = str_expression.replace(" ", "")
 
         for i, ch in enumerate(str_expression):
-            if ch not in NUMBERS:
-                if number_buff != "" :
+            if ch in NUMBERS:
+                number_buff += ch
+            elif ch in CHARS:
+                string_buff += ch
+            elif ch in OPS:
+                if number_buff != "":
                     tokens.append(float(number_buff))
                     number_buff = ""
+                if string_buff != "":
+                    tokens.append(string_buff)
+                    string_buff = ""
                 tokens.append(ch)
-            else:
-                number_buff += ch
 
         if number_buff != "":
             tokens.append(float(number_buff))
             number_buff = ""
+        if string_buff != "":
+            tokens.append(string_buff)
+            string_buff = ""
         return tokens
 
     def get_next_token(self):

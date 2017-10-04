@@ -1,3 +1,9 @@
+def raise_error(*args):
+    debugger(args)
+
+def is_float_type(x):
+    return type(x) == float
+
 def calculate_ops(a, ops, b):
     """
     a, b : 피연산자
@@ -16,7 +22,7 @@ def calculate_ops(a, ops, b):
 
 
 def debugger(*s):
-    # print(s)
+    #print(s)
     pass
 
 
