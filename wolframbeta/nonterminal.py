@@ -327,7 +327,7 @@ class Func(Nonterminal):
 
     def func_calculate(self, func_name, param_list):
         ret = None
-        if func_name in BUILTIN_FUNCTIONS:
+        if func_name in BUILTIN_FUNCTIONS.keys():
             ret = self._builtin_function_calculate(func_name, param_list)
 
         return ret
@@ -338,26 +338,26 @@ class Func(Nonterminal):
         :param parmas_list: Value object whose value is float
         :return: calculated functions like "sin", "cos", "pow", "exp"
         """
-        if func_name == "sin":
+        if func_name in BUILTIN_FUNCTIONS_WITH_ONE_PARAM.keys():
             if len(params_list) != 1:
-                raise_error("'sin' expected one parameters, but", len(params_list), "is received")
+                raise_error("{} expected one parameters, but {} is/are received".format(func_name, len(params_list)))
             radian = params_list[0]
             radian.calculate()
             if is_float_type(radian.value):
-                return math.sin(radian.value)
+                return BUILTIN_FUNCTIONS_WITH_ONE_PARAM[func_name](radian.value)
             else:
                 # arg of sin is expr
                 pass
 
-        elif func_name == "pow":
+        elif func_name in BUILTIN_FUNCTIONS_WITH_TWO_PARAM.keys() :
             if len(params_list) != 2:
-                raise_error("'pow' expected one parameters, but", len(params_list),"is received")
-            base = params_list[0]
+                raise_error("{} expected two parameters, but {} is/are received".format(func_name, len(params_list)))
+            base = params_list[0]  # pow 함수의 경우 첫번째 argument가 base. log 함수는 두 번째 argument가 base임.
             exponent = params_list[1]
             base.calculate()
             exponent.calculate()
             if is_float_type(base.value) and is_float_type(exponent.value):
-                return math.pow(base.value, exponent.value)
+                return BUILTIN_FUNCTIONS_WITH_TWO_PARAM[func_name](base.value, exponent.value)
             else:
                 #  base or exponent is expr
                 pass

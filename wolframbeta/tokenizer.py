@@ -1,3 +1,6 @@
+from wolframbeta.config import *
+
+
 class TokenManager:
     def __init__(self, str_expression):
         self.str_expression = str_expression
@@ -26,21 +29,26 @@ class TokenManager:
                 number_buff += ch
             elif ch in CHARS:
                 string_buff += ch
+
             elif ch in OPS:
                 if number_buff != "":
                     tokens.append(float(number_buff))
                     number_buff = ""
                 if string_buff != "":
-                    tokens.append(string_buff)
+                    if string_buff in BUILTIN_CONSTANTS.keys():
+                        tokens.append(BUILTIN_CONSTANTS[string_buff])
+                    else:
+                        tokens.append(string_buff)
                     string_buff = ""
                 tokens.append(ch)
 
         if number_buff != "":
             tokens.append(float(number_buff))
-            number_buff = ""
         if string_buff != "":
-            tokens.append(string_buff)
-            string_buff = ""
+            if string_buff in BUILTIN_CONSTANTS.keys():
+                tokens.append(BUILTIN_CONSTANTS[string_buff])
+            else:
+                tokens.append(string_buff)
         return tokens
 
     def get_next_token(self):
