@@ -1,6 +1,7 @@
 from wolframbeta.utils import *
-from wolframbeta.terminal import Value
+from wolframbeta.terminal import Value, Variable
 from wolframbeta.config import *
+from wolframbeta.tokenizer import TokenManager
 """
 
 <expr> := <term> <expr_tail>
@@ -114,9 +115,8 @@ class ExprTail(Nonterminal):
 
 class Term(Nonterminal):
     """
-    <Term> := <Factor> <term_power_tail>
-    <Term_power_tail> := <power> <factor> <Term_multi_tail> | <Term_multi_tail>
-    <Term_multi_tail> := <multi> <Term> | empty
+    <Term> := <Factor> <term_tail>
+    <Term_tail> := <multi> <Term> | empty
     """
     def __init__(self, tokenmanager):
         super(self.__class__, self).__init__(tokenmanager)
@@ -146,14 +146,54 @@ class Term(Nonterminal):
         term_tail = self.get_term_tail()
 
         self.value = factor.value
+
+        multi_constant = 1
+        variables = dict()
+        if is_float_type(self.value):
+            multi_constant = self.value
+        elif type(self.value) == Variable:
+            variables[self.value.name] = 1
+
         while term_tail.has_childs():
             multi = term_tail.get_multi()
             term = term_tail.get_term()
             factor_child = term.get_factor()
             factor_child.calculate()
             debugger("cal :", self.value, multi.value, factor_child.value)
-            self.value = calculate_ops(self.value, multi.value, factor_child.value)
+
+            if is_float_type(factor_child.value):
+                multi_constant = calculate_ops(multi_constant, multi.value, factor_child.value)
+            elif type(factor_child.value) == Variable:
+                if factor_child.value.name in variables.keys():
+                    if multi.value == '*':
+                        variables[factor_child.value.name] += 1
+                    elif multi.value == '/':
+                        variables[factor_child.value.name] -= 1
+                else:
+                    if multi.value == '*':
+                        variables[factor_child.value.name] = 1
+                    elif multi.value == '/':
+                        variables[factor_child.value.name] = -1
+
             term_tail = term.get_term_tail()
+
+        self.value = multi_constant
+        if len(variables) > 0:
+            str_expression = str(multi_constant)
+            debugger("new str_ex variables : "+ str(variables))
+            for variable in variables.keys():
+                exponent = variables[variable]
+                if exponent == 1:
+                    str_expression += "*"+variable
+                elif exponent == -1:
+                    str_expression += '/'+variable
+                else:
+                    str_expression += "*" + variable + "^" + str(exponent)
+
+            debugger("new str_expression {}".format(str_expression))
+            tokenmanager = TokenManager(str_expression)
+            term = Term(tokenmanager)
+            self.value = term
 
     def get_factor(self):
         return self.childs[0]
@@ -223,6 +263,13 @@ class Factor(Nonterminal):
             func = Func(self.tokenmanager, token)
             func.parse()
             self.add_childs(func)
+
+            # elif token in ASSIGNED_FUNCTIONS
+            # elif token in ASSIGNED_VARIABLES
+        else: # token is Variable
+            variable = Variable(token)
+            self.add_childs(variable)
+
         factor_tail = FactorTail(self.tokenmanager)
         factor_tail.parse()
         self.add_childs(factor_tail)
@@ -236,27 +283,30 @@ class Factor(Nonterminal):
             number
             variable
         """
-        l1_type = type(self.childs[0])
-        l1_child = self.childs[0]
-        if l1_type == Value:
-            if l1_child.value == '-':
+
+        if type(self.childs[0]) == Value:
+            if self.childs[0].value == '-':
                 # - <factor>
 
                 factor = self.childs[1]
                 factor.calculate()
                 debugger("minus sign : ", factor.value)
                 self.value = -factor.value
-            elif l1_child.value == '(':
+            elif self.childs[0].value == '(':
                 expr = self.childs[1]
                 expr.calculate()
                 self.value = expr.value
             else:
                 # number
-                self.value = l1_child.value
-        else:
+                self.value = self.childs[0].value
+        elif type(self.childs[0]) == Func:
             func = self.childs[0]
             func.calculate()
             self.value = func.value
+
+        elif type(self.childs[0]) == Variable:
+            variable = self.childs[0]
+            self.value = variable
 
         factor_tail = self.childs[-1]
         if factor_tail.has_childs():
@@ -448,3 +498,35 @@ def print_tree(nonterm):
             else:
                 debugger(child.value)
 
+
+def calculate_term(a, ops, b):
+    pass
+
+def calculate_value(a, ops, b):
+    """
+    :param a, b: nonterminal object or Value object
+    :param ops: Value object which contains ops
+    :return: float or Expr object of "a ops b"
+    """
+    if is_float_type(a.value) and is_float_type(b.value):
+        return calculate_ops(a.value, ops.value, b.value)
+
+    """
+    TODO :: expr의 Variable 차수별 정렬 
+        Variable 차수 : FactorTail (:= <power><factor>) 에 나타나있음. 
+            FactorTail의 factor 순서대로 정렬
+            term := <factor><multi><term> 을 계산하면 차수가 일단 먼저 나올 듯한데
+            이걸 계산하려면 이 함수가 또 필요한게 함정
+    """
+    if type(a) == Term and type(b) == Term:
+        pass
+
+    elif type(a) == Expr and type(b) == Expr:
+        pass
+
+
+def calculate_term(a, ops, b):
+    pass
+
+def sort_factors():
+    pass

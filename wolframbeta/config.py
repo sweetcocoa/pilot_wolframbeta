@@ -1,5 +1,6 @@
 import math
 
+
 def cosec(arg):
     return 1/math.sin(arg)
 
@@ -30,7 +31,6 @@ BUILTIN_FUNCTIONS = {
     "log": math.log,
 }
 
-
 BUILTIN_FUNCTIONS_WITH_ONE_PARAM = {
     "sin": math.sin,
     "cos": math.cos,
@@ -52,5 +52,8 @@ BUILTIN_FUNCTIONS_WITH_TWO_PARAM = {
     "log": math.log,
 }
 
-
-BUILTIN_CONSTANTS = { "e": math.e, "pi":math.pi }
+BUILTIN_CONSTANTS = {
+    "e": math.e,
+    "pi":math.pi,
+    "π":math.pi,
+}
