@@ -48,12 +48,12 @@ BUILTIN_FUNCTIONS_WITH_ONE_PARAM = {
 }
 
 BUILTIN_FUNCTIONS_WITH_TWO_PARAM = {
-    "pow":math.pow,
+    "pow": math.pow,
     "log": math.log,
 }
 
 BUILTIN_CONSTANTS = {
     "e": math.e,
-    "pi":math.pi,
-    "π":math.pi,
+    "pi": math.pi,
+    "π": math.pi,
 }

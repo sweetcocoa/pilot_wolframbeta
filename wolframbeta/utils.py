@@ -1,11 +1,6 @@
 def raise_error(*args):
     debugger(args)
 
-
-def is_float_type(x):
-    return type(x) == float
-
-
 def calculate_ops(a, ops, b):
     """
     a, b : 피연산자
@@ -21,10 +16,12 @@ def calculate_ops(a, ops, b):
         return a / b
     elif ops == '^':
         return a ** b
+    elif ops == '%':
+        return a % b
 
 
 def debugger(*s):
-    print(s)
+    # print(s)
     pass
 
 
@@ -36,7 +33,7 @@ def is_string_add(tok):
 
 
 def is_string_multi(tok):
-    if tok == '*' or tok == '/':
+    if tok == '*' or tok == '/' or tok == '%':
         return True
     else:
         return False

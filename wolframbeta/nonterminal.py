@@ -1,5 +1,5 @@
 from wolframbeta.utils import *
-from wolframbeta.terminal import Value, Variable
+from wolframbeta.terminal import Variable
 from wolframbeta.config import *
 from wolframbeta.tokenizer import TokenManager
 """
@@ -90,7 +90,7 @@ class Expr(Nonterminal):
             expr = expr_tail.childs[1]
             expr.calculate()
             # debugger("?", term.value, ops.value, expr.value)
-            value = calculate_ops(term.value, ops.value, expr.value)
+            value = calculate_ops(term.value, ops, expr.value)
             self.value = value
         else:
             value = term.value
@@ -106,7 +106,7 @@ class ExprTail(Nonterminal):
             next_token = self.tokenmanager.show_next_token()
             if is_string_add(next_token):
                 token = self.tokenmanager.get_next_token()
-                add = Value('add', token)
+                add = token
                 self.add_childs(add)
                 expr = Expr(self.tokenmanager)
                 expr.parse()
@@ -149,7 +149,7 @@ class Term(Nonterminal):
 
         multi_constant = 1
         variables = dict()
-        if is_float_type(self.value):
+        if isinstance(self.value, float):
             multi_constant = self.value
         elif type(self.value) == Variable:
             variables[self.value.name] = 1
@@ -159,20 +159,20 @@ class Term(Nonterminal):
             term = term_tail.get_term()
             factor_child = term.get_factor()
             factor_child.calculate()
-            debugger("cal :", self.value, multi.value, factor_child.value)
+            debugger("cal :", self.value, multi, factor_child.value)
 
-            if is_float_type(factor_child.value):
-                multi_constant = calculate_ops(multi_constant, multi.value, factor_child.value)
+            if isinstance(factor_child.value, float):
+                multi_constant = calculate_ops(multi_constant, multi, factor_child.value)
             elif type(factor_child.value) == Variable:
                 if factor_child.value.name in variables.keys():
-                    if multi.value == '*':
+                    if multi == '*':
                         variables[factor_child.value.name] += 1
-                    elif multi.value == '/':
+                    elif multi == '/':
                         variables[factor_child.value.name] -= 1
                 else:
-                    if multi.value == '*':
+                    if multi == '*':
                         variables[factor_child.value.name] = 1
-                    elif multi.value == '/':
+                    elif multi == '/':
                         variables[factor_child.value.name] = -1
 
             term_tail = term.get_term_tail()
@@ -211,7 +211,7 @@ class TermTail(Nonterminal):
             next_token = self.tokenmanager.show_next_token()
             if is_string_multi(next_token):
                 token = self.tokenmanager.get_next_token()
-                multi = Value('multi', token)
+                multi = token
                 self.add_childs(multi)
                 term = Term(self.tokenmanager)
                 term.parse()
@@ -240,21 +240,21 @@ class Factor(Nonterminal):
     def parse(self):
         token = self.tokenmanager.get_next_token()
 
-        if type(token) == float:
-            self.add_childs(Value("number", token))
+        if isinstance(token, float):
+            self.add_childs(token)
 
         elif token == '(':
             # ( <expr> )
-            self.add_childs(Value("parentheses", token))
+            self.add_childs(token)
             expr = Expr(self.tokenmanager)
             expr.parse()
             self.add_childs(expr)
             token = self.tokenmanager.get_next_token()
-            self.add_childs(Value("parentheses", token))
+            self.add_childs(token)
 
         elif token == '-':
-            term = Value('sign', '-')
-            self.add_childs(term)
+            sign = token
+            self.add_childs(sign)
             factor = Factor(self.tokenmanager)
             factor.parse()
             self.add_childs(factor)
@@ -284,21 +284,20 @@ class Factor(Nonterminal):
             variable
         """
 
-        if type(self.childs[0]) == Value:
-            if self.childs[0].value == '-':
+        if isinstance(self.childs[0], str):
+            if self.childs[0] == '-':
                 # - <factor>
-
                 factor = self.childs[1]
                 factor.calculate()
                 debugger("minus sign : ", factor.value)
                 self.value = -factor.value
-            elif self.childs[0].value == '(':
+            elif self.childs[0] == '(':
                 expr = self.childs[1]
                 expr.calculate()
                 self.value = expr.value
-            else:
+        elif isinstance(self.childs[0], float):
                 # number
-                self.value = self.childs[0].value
+                self.value = self.childs[0]
         elif type(self.childs[0]) == Func:
             func = self.childs[0]
             func.calculate()
@@ -313,8 +312,8 @@ class Factor(Nonterminal):
             power = factor_tail.get_power()
             factor_child = factor_tail.get_factor()
             factor_child.calculate()
-            self.value = calculate_ops(self.value, power.value, factor_child.value)
-            debugger("power cal : ", self.value, power.value, factor_child.value)
+            self.value = calculate_ops(self.value, power, factor_child.value)
+            debugger("power cal : ", self.value, power, factor_child.value)
         debugger("factor value : ", self.value)
 
 
@@ -330,7 +329,7 @@ class FactorTail(Nonterminal):
             next_token = self.tokenmanager.show_next_token()
             if is_string_power(next_token):
                 token = self.tokenmanager.get_next_token()
-                power = Value('power', token)
+                power = token
                 self.add_childs(power)
                 factor = Factor(self.tokenmanager)
                 factor.parse()
@@ -365,7 +364,7 @@ class Func(Nonterminal):
         debugger("functions name : ", self.name)
         params = self.get_params()
         params_list = params.get_params_list()
-        debugger("params : ", params_list)
+        # debugger("params : ", params_list)
 
         value = self.func_calculate(self.name, params_list)
         self.value = value
@@ -385,7 +384,7 @@ class Func(Nonterminal):
     def _builtin_function_calculate(self, func_name, params_list):
         """
         :param func_name:
-        :param parmas_list: Value object whose value is float
+        :param parmas_list: Expr list
         :return: calculated functions like "sin", "cos", "pow", "exp"
         """
         if func_name in BUILTIN_FUNCTIONS_WITH_ONE_PARAM.keys():
@@ -393,7 +392,7 @@ class Func(Nonterminal):
                 raise_error("{} expected one parameters, but {} is/are received".format(func_name, len(params_list)))
             radian = params_list[0]
             radian.calculate()
-            if is_float_type(radian.value):
+            if isinstance(radian.value, float):
                 return BUILTIN_FUNCTIONS_WITH_ONE_PARAM[func_name](radian.value)
             else:
                 # arg of sin is expr
@@ -406,7 +405,7 @@ class Func(Nonterminal):
             exponent = params_list[1]
             base.calculate()
             exponent.calculate()
-            if is_float_type(base.value) and is_float_type(exponent.value):
+            if isinstance(base.value, float) and isinstance(exponent.value, float):
                 return BUILTIN_FUNCTIONS_WITH_TWO_PARAM[func_name](base.value, exponent.value)
             else:
                 #  base or exponent is expr
@@ -425,7 +424,7 @@ class Params(Nonterminal):
     def parse(self):
         token = self.tokenmanager.get_next_token()
         # token == '('
-        self.add_childs(Value("parenthesis", token))
+        self.add_childs(token)
         expr = Expr(self.tokenmanager)
         expr.parse()
         self.add_childs(expr)
@@ -433,7 +432,7 @@ class Params(Nonterminal):
         param_tail.parse()
         self.add_childs(param_tail)
         token = self.tokenmanager.get_next_token()  # ')' token should exists
-        self.add_childs(Value("parenthesis", token))
+        self.add_childs(token)
 
     def get_param_tail(self):
         return self.childs[2]
@@ -471,7 +470,7 @@ class ParamTail(Nonterminal):
             token = self.tokenmanager.show_next_token()
             if token == ',':
                 token = self.tokenmanager.get_next_token()
-                comma = Value("comma", token)
+                comma = token
                 self.add_childs(comma)
                 expr = Expr(self.tokenmanager)
                 expr.parse()
@@ -486,7 +485,7 @@ class ParamTail(Nonterminal):
     def get_param_tail(self):
         return self.childs[2]
 
-
+"""
 tree_depth = 0
 def print_tree(nonterm):
     global tree_depth
@@ -497,36 +496,4 @@ def print_tree(nonterm):
                 print_tree(child)
             else:
                 debugger(child.value)
-
-
-def calculate_term(a, ops, b):
-    pass
-
-def calculate_value(a, ops, b):
-    """
-    :param a, b: nonterminal object or Value object
-    :param ops: Value object which contains ops
-    :return: float or Expr object of "a ops b"
-    """
-    if is_float_type(a.value) and is_float_type(b.value):
-        return calculate_ops(a.value, ops.value, b.value)
-
-    """
-    TODO :: expr의 Variable 차수별 정렬 
-        Variable 차수 : FactorTail (:= <power><factor>) 에 나타나있음. 
-            FactorTail의 factor 순서대로 정렬
-            term := <factor><multi><term> 을 계산하면 차수가 일단 먼저 나올 듯한데
-            이걸 계산하려면 이 함수가 또 필요한게 함정
-    """
-    if type(a) == Term and type(b) == Term:
-        pass
-
-    elif type(a) == Expr and type(b) == Expr:
-        pass
-
-
-def calculate_term(a, ops, b):
-    pass
-
-def sort_factors():
-    pass
+"""
