@@ -1,6 +1,18 @@
 ## Wolframbeta ##
 ---
-### 구현된 기능 ###
+## 모듈 설명 ##
+* nonterminal.py
+    - Expr(tail), Term(tail), Factor(tail), Func(Params) 클래스 정의
+* config.py
+    - 빌트인 함수, 상수(e, pi) 등 정의
+* utils.py
+    - 일반 함수(디버그, 에러 발생 등) 정의
+* tokenizer.py
+    - token manager 클래스 정의
+* similar_term.py
+    - 동류항, 단일항 클래스 정의
+
+### 구현된 기능(현재 커밋 기준으로는 모든 기능 사용 불가 - 동류항 기반 연산 준비중) ###
 - 사칙연산
     두 실수의 사칙연산
     괄호를 포함한 여러 실수의 사칙연산
@@ -15,30 +27,19 @@
 - 합성함수
 
 # TODO #
-
-## 다항식의 계산 ##
-
+### 다항식의 계산 ###
 - 다항식의 덧셈, 뺄셈
 - 다항식의 곱셈, 나눗셈
 - 다항식의 거듭제곱
 
-- 내부 연산의 객체화 : x^(2*x^3+1) + x^(2*x^3+1)을 계산할 수 있을 것인지?
-    - 2*x^3+1 == 2*x^3+1 ? 같은 비교 연산도 가능해야함
-    - expr 객체의 비교는 어떻게 구현?, term의 비교는?
-    - 일단 가장 간단한 factor의 비교부터 생각해보자.
-        - factor := (something)(^<factor>) 의 꼴이다.
-        - 최대한 계산한 다음 something, factor가 각각 같으면 같은 factor
-        - 근데 그 최대한 계산 이라는건 어떻게 정의하지?
-        - 일단 factor의 연산(multiply)부터 정의해보자
-            - factor 의 something 부분은 5가지로 나눠지고, 곱셈 나눗셈 해서 총 50가지 연산으로 나뉜다.
-            - 일단 기본적인게 number * number, number / number 이게 베이스가 되고
-            - number * variable, number / variable, variable * number, variable / number
-            - number * function, number / function, function * number, function / number
-            - 일단 이 위의 것들이 기본이 되어야 할 듯.
-            - ( expr ) * number, ( expr ) / number 정도는 구현할 수 있을 것 같은데 문제는
-            - ( expr ) * ( expr ), ( expr ) / ( expr ) 이 되면 골치가 아픔. due 까지 구현할 수 있을지도 미지수.
-        
-## 그 외 ## 
+- 내부 연산의 객체화 : x^(2*x^3+1) + x^(1+2*x^3)을 계산할 수 있을 것인지?
+    - Expr의 분류가 가능할 것인지?
+- 동류항의 정렬과 한 항의 정보를 효율적으로 저장하는 방법을 고려한 인터페이스, 자료구조 구성
+    - 동류항 자료구조 만들기
+    - 항 자료구조 만들기
+    - 그 외 고려할 것 미리 생각하기
+
+### 그 외 ###
 
 - 일변수 함수의 미분
 - 다변수 함수의 편미분

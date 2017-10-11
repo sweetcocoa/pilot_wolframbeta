@@ -44,3 +44,21 @@ def is_string_power(tok):
         return True
     else:
         return False
+
+
+def get_term_str_expression(const, variables):
+    """
+    :param const: constant float in front of similar term
+    :param variables: variables which compose the similar term
+    :return: string expression, which could be used for initialization of Tokenmanager.
+    """
+    str_expression = str(const)
+    for variable in variables.keys():
+        exponent = variables[variable]
+        if exponent == 1:
+            str_expression += "*" + variable
+        elif exponent == -1:
+            str_expression += '/' + variable
+        else:
+            str_expression += "*" + variable + "^" + str(exponent)
+    return str_expression

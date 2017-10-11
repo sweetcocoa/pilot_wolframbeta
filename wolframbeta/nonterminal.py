@@ -2,6 +2,7 @@ from wolframbeta.utils import *
 from wolframbeta.terminal import Variable
 from wolframbeta.config import *
 from wolframbeta.tokenizer import TokenManager
+from wolframbeta.similar_term import SimilarTermsDict
 """
 
 <expr> := <term> <expr_tail>
@@ -30,12 +31,35 @@ where <something>
 
 class Nonterminal:
     def __init__(self, tokenmanager):
-        self.childs = []          # token을 분해하여 객체화해서 append 해두는 리스트
+        self.childs = []          # token을 분해하여 객체화해서 append 해두는 리스트(트리)
         self.tokenmanager = tokenmanager
         self.value = None
 
+        self.childs_list = []  # childs tree를 list화 (Tree -> list).
+        # list의 elem들은
+        # expr : ops(+,-), term
+        # term := ops(*,/,%), factor,
+        # factor := ops(^), factor? 고민 중
+
+        self.__similar_terms__ = dict()
+        # 비교의 기준이 되는 딕셔너리.
+        # key : 동류항.
+        # key 정렬 방법
+        # 1. Variable 알파벳순
+        # 2. Function 이름순
+        # 3. Function parameter가 앞서는 순
+        # 으로 정렬한 문자열을 사용.
+        # y * x^3 => x^3*y
+        # sin(x)*y => y*sin(x)
+        # pow(y,3)*x => x*pow(y,3)
+        # key == $const 인 것을 상수항으로 사용한다.
+        # value
+
     def add_childs(self, newobjects):
         self.childs.append(newobjects)
+
+    def add_childs_list(self, newobjects):
+        self.childs_list.append(newobjects)
 
     def parse(self):
         return
@@ -47,10 +71,17 @@ class Nonterminal:
             return False
 
     def value_is_float(self):
-        if type(self.value) == float:
+        if isinstance(self.value, float):
             return True
         else:
             return False
+
+    def get_summary(self):
+        return self.__summary__
+
+    def get_childs_list(self):
+        if len(self.childs_list) > 0:
+            return self.childs_list
 
 
 class Expr(Nonterminal):
@@ -75,26 +106,57 @@ class Expr(Nonterminal):
         expr_tail.parse()
         self.add_childs(expr_tail)
 
+        while expr_tail.has_childs():
+            ops = expr_tail.get_ops()
+            self.add_childs_list(ops)
+
+            expr = expr_tail.get_expr()
+            term = expr.get_term()
+            self.add_childs(term)
+            expr_tail = expr.get_expr_tail()
+
     def calculate(self):
         """
         args : None
         return : None
         self.childs의 각 value를 이용하여 self.value를 계산
         """
-        term = self.childs[0]
+        term = self.get_term()
         term.calculate()
 
-        expr_tail = self.childs[1]
-        if expr_tail.has_childs():
-            ops = expr_tail.childs[0]
-            expr = expr_tail.childs[1]
+        """
+        expr_tail = self.get_expr_tail()
+        while expr_tail.has_childs():
+            ops = expr_tail.get_ops()
+            expr = expr_tail.get_expr()
             expr.calculate()
-            # debugger("?", term.value, ops.value, expr.value)
+        """
+        expr_tail = self.get_expr_tail()
+        if expr_tail.has_childs():
+            ops = expr_tail.get_ops()
+            expr = expr_tail.get_expr()
+            expr.calculate()
             value = calculate_ops(term.value, ops, expr.value)
             self.value = value
         else:
             value = term.value
             self.value = value
+
+    def get_term(self):
+        return self.childs[0]
+
+    def get_expr_tail(self):
+        return self.childs[1]
+
+    def __str__(self):
+        term = self.get_term()
+        ret_str = str(term)
+        expr_tail = self.get_expr_tail()
+        if expr_tail.has_childs():
+            ops = expr_tail.get_ops()
+            expr = expr_tail.get_expr()
+            ret_str += ops + str(expr)
+        return ret_str
 
 
 class ExprTail(Nonterminal):
@@ -112,6 +174,12 @@ class ExprTail(Nonterminal):
                 expr.parse()
                 self.add_childs(expr)
 
+    def get_ops(self):
+        return self.childs[0]
+
+    def get_expr(self):
+        return self.childs[1]
+
 
 class Term(Nonterminal):
     """
@@ -120,6 +188,8 @@ class Term(Nonterminal):
     """
     def __init__(self, tokenmanager):
         super(self.__class__, self).__init__(tokenmanager)
+        self.__constant__ = None
+        self.__nonconstant_variable_dict__ = dict()
 
     def parse(self):
         """
@@ -145,61 +215,125 @@ class Term(Nonterminal):
 
         term_tail = self.get_term_tail()
 
-        self.value = factor.value
-
         multi_constant = 1
         variables = dict()
-        if isinstance(self.value, float):
-            multi_constant = self.value
-        elif type(self.value) == Variable:
-            variables[self.value.name] = 1
+        if isinstance(factor.value, float):
+            multi_constant = factor.value
+        else:
+            if isinstance(factor.value, Variable):
+                key_str = str(factor.value)
+            elif isinstance(factor.value, Factor):
+                key_str = factor.value.get_something_str()
+            elif isinstance(factor.value, Func):
+                key_str = str(factor.value)
+            else:
+                print("type ", type(factor.value))
+            factor_tail = factor.get_factor_tail()
+            exponent = 1
+            if factor_tail.has_childs():
+                exponent = factor_tail.get_factor()
+            variables[key_str] = exponent
+
+        ### elif factor.value is expr, factor
 
         while term_tail.has_childs():
             multi = term_tail.get_multi()
             term = term_tail.get_term()
             factor_child = term.get_factor()
             factor_child.calculate()
-            debugger("cal :", self.value, multi, factor_child.value)
+            debugger("cal :", multi_constant, multi, str(factor_child))
 
             if isinstance(factor_child.value, float):
                 multi_constant = calculate_ops(multi_constant, multi, factor_child.value)
-            elif type(factor_child.value) == Variable:
-                if factor_child.value.name in variables.keys():
+            elif isinstance(factor_child.value, Variable) or isinstance(factor_child.value, Factor):
+                factor_tail = factor_child.get_factor_tail()
+                exponent = 1
+                if factor_tail.has_childs():
+                    exponent = factor_tail.get_factor().value
+                    debugger("expon", str(exponent))
+
+                if isinstance(factor_child.value, Variable):
+                    similar_term = factor_child.value.name
+                else:
+                    similar_term = factor_child.value.get_something_str()
+
+                if similar_term in variables.keys():
                     if multi == '*':
-                        variables[factor_child.value.name] += 1
+                        variables[similar_term] += exponent
                     elif multi == '/':
-                        variables[factor_child.value.name] -= 1
+                        variables[similar_term] -= exponent
                 else:
                     if multi == '*':
-                        variables[factor_child.value.name] = 1
+                        variables[similar_term] = exponent
                     elif multi == '/':
-                        variables[factor_child.value.name] = -1
+                        variables[similar_term] = -exponent
 
+                debugger("similar_term dict ", variables)
             term_tail = term.get_term_tail()
 
         self.value = multi_constant
         if len(variables) > 0:
-            str_expression = str(multi_constant)
-            debugger("new str_ex variables : "+ str(variables))
-            for variable in variables.keys():
-                exponent = variables[variable]
-                if exponent == 1:
-                    str_expression += "*"+variable
-                elif exponent == -1:
-                    str_expression += '/'+variable
-                else:
-                    str_expression += "*" + variable + "^" + str(exponent)
+            self.value = self
 
-            debugger("new str_expression {}".format(str_expression))
-            tokenmanager = TokenManager(str_expression)
-            term = Term(tokenmanager)
-            self.value = term
+        self.__constant__ = multi_constant
+        self.__nonconstant_variable_dict__ = variables
 
     def get_factor(self):
         return self.childs[0]
 
     def get_term_tail(self):
         return self.childs[1]
+
+    def get_const_variable(self):
+        return self.__constant__, self.__nonconstant_variable_dict__
+
+    def __str__(self):
+        const, variable = self.get_const_variable()
+        factor = self.get_factor()
+        ret_str = str(factor)
+        term_tail = self.get_term_tail()
+        if term_tail.has_childs():
+            multi = term_tail.get_multi()
+            term = term_tail.get_term()
+            ret_str += multi + str(term)
+        return ret_str
+
+    def __add__(self, other):
+        if isinstance(other, Term):
+            const1, variable1 = self.get_const_variable()
+            const2, variable2 = other.get_const_variable()
+            if variable1 == variable2:
+                const = const1 + const2
+                str_expression = get_term_str_expression(const, variable1)
+                tokenmanager = TokenManager(str_expression)
+                term = Term(tokenmanager)
+                term.parse()
+                return term
+            else:
+                str_expression1 = get_term_str_expression(const1, variable1)
+                str_expression2 = get_term_str_expression(const2, variable2)
+                tokenmanager = TokenManager(str_expression1 + '+' + str_expression2)
+                expr = Expr(tokenmanager)
+                expr.parse()
+                return expr
+        else:
+            pass
+
+    def __iadd__(self, other):
+        self.__add__(other)
+
+    def __sub__(self, other):
+        return self.__add__(-other)
+
+    def __neg__(self):
+        const, variable = self.get_const_variable()
+        const = -const
+        str_expression = get_term_str_expression(const, variable)
+        tokenmanager = TokenManager(str_expression)
+        term = Term(tokenmanager)
+        term.parse()
+        term.calculate()
+        return term
 
 
 class TermTail(Nonterminal):
@@ -236,6 +370,7 @@ class Factor(Nonterminal):
     """
     def __init__(self, tokenmanager):
         super(self.__class__, self).__init__(tokenmanager)
+        self.__something_str__ = None
 
     def parse(self):
         token = self.tokenmanager.get_next_token()
@@ -266,7 +401,7 @@ class Factor(Nonterminal):
 
             # elif token in ASSIGNED_FUNCTIONS
             # elif token in ASSIGNED_VARIABLES
-        else: # token is Variable
+        else:  # token is Variable
             variable = Variable(token)
             self.add_childs(variable)
 
@@ -274,47 +409,114 @@ class Factor(Nonterminal):
         factor_tail.parse()
         self.add_childs(factor_tail)
 
+        while factor_tail.has_childs():
+            power = factor_tail.get_power()
+            self.add_childs_list(power)
+            factor = factor_tail.get_factor()
+            self.add_childs_list(factor)
+            factor_tail = factor.get_factor_tail()
+
     def calculate(self):
         """
         args : None
         return : None
-        self.childs의 각 value를 이용하여 self.value를 계산
-            - <factor>
-            number
-            variable
+        Calculate self.value.
         """
 
+        value = None
         if isinstance(self.childs[0], str):
             if self.childs[0] == '-':
                 # - <factor>
                 factor = self.childs[1]
                 factor.calculate()
-                debugger("minus sign : ", factor.value)
-                self.value = -factor.value
+                value = -factor.value
             elif self.childs[0] == '(':
                 expr = self.childs[1]
                 expr.calculate()
-                self.value = expr.value
+                value = expr.value
         elif isinstance(self.childs[0], float):
                 # number
-                self.value = self.childs[0]
-        elif type(self.childs[0]) == Func:
+                value = self.childs[0]
+        elif isinstance(self.childs[0], Variable):
+            variable = self.childs[0]
+            value = variable
+        elif isinstance(self.childs[0], Func):
             func = self.childs[0]
             func.calculate()
-            self.value = func.value
+            value = func.value
 
-        elif type(self.childs[0]) == Variable:
-            variable = self.childs[0]
-            self.value = variable
+        factor_tail = self.get_factor_tail()
 
-        factor_tail = self.childs[-1]
         if factor_tail.has_childs():
             power = factor_tail.get_power()
             factor_child = factor_tail.get_factor()
             factor_child.calculate()
-            self.value = calculate_ops(self.value, power, factor_child.value)
-            debugger("power cal : ", self.value, power, factor_child.value)
-        debugger("factor value : ", self.value)
+            if isinstance(value, float):
+                value = calculate_ops(value, power, factor_child.value)
+        # debugger("factor value : ", value)
+
+        self.value = value
+        if not isinstance(value, float) and factor_tail.has_childs():  # x^3, sin(x)^3 should remain as Factor
+            self.value = self
+
+    def __str__(self):
+        ret_str = self.get_something_str()
+        factor_tail = self.get_factor_tail()
+        if factor_tail.has_childs():
+            factor_child = factor_tail.get_factor()
+            ret_str += '^' + str(factor_child)
+
+        return ret_str
+
+    def get_factor_tail(self):
+        return self.childs[-1]
+
+    def get_something_str(self):
+        """
+        <factor> := <something><factor_tail>
+        where <something>
+        := - <factor>
+        := ( <expr> )
+        := number
+        := variable
+        := <function><param>
+        <factor_tail> := <power> <factor> | empty
+        :return:
+        <something> in a string form.
+        """
+        if self.__something_str__ is not None:
+            return self.__something_str__
+        if not self.has_childs():
+            return ""
+        ret_str = ""
+        if isinstance(self.childs[0], str):
+            if self.childs[0] == '-':
+                # - <factor>
+                factor = self.childs[1]
+                ret_str = '-' + str(factor)
+            elif self.childs[0] == '(':
+                expr = self.childs[1]
+                ret_str = '('+str(expr)+')'
+        elif isinstance(self.childs[0], float):
+                number = self.childs[0]
+                ret_str = str(number)
+        elif isinstance(self.childs[0], Func):
+            func = self.childs[0]
+            ret_str = str(func)
+        elif isinstance(self.childs[0], Variable):
+            variable = self.childs[0]
+            ret_str = str(variable)
+        return ret_str
+
+    def __eq__(self, other):
+        if not isinstance(other, Factor):
+            return False
+        if len(self.childs) != len(other.childs):
+            return False
+        return str(self) == str(other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 
 class FactorTail(Nonterminal):
@@ -367,7 +569,10 @@ class Func(Nonterminal):
         # debugger("params : ", params_list)
 
         value = self.func_calculate(self.name, params_list)
-        self.value = value
+        if value is None:
+            self.value = self
+        else:
+            self.value = value
 
         #self.value = 0
 
@@ -411,6 +616,13 @@ class Func(Nonterminal):
                 #  base or exponent is expr
                 pass
         return None
+
+    def __str__(self):
+        ret_str = self.name
+        param = self.get_params()
+        ret_str += str(param)
+        return ret_str
+
 
 class Params(Nonterminal):
     """
@@ -456,6 +668,14 @@ class Params(Nonterminal):
 
         return self.params_list
 
+    def __str__(self):
+        params_list = self.get_params_list()
+        ret_str = '('
+        for param in params_list:
+            ret_str += str(param) + ','
+        ret_str = ret_str[:-1] + ')'
+        return ret_str
+
 
 class ParamTail(Nonterminal):
     """
@@ -484,16 +704,3 @@ class ParamTail(Nonterminal):
 
     def get_param_tail(self):
         return self.childs[2]
-
-"""
-tree_depth = 0
-def print_tree(nonterm):
-    global tree_depth
-    local_depth = tree_depth
-    if type(nonterm) != Value:
-        for child in nonterm.childs:
-            if type(child) != Value:
-                print_tree(child)
-            else:
-                debugger(child.value)
-"""

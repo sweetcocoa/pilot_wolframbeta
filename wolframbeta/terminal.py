@@ -1,4 +1,5 @@
 from wolframbeta.utils import *
+from wolframbeta.tokenizer import TokenManager
 
 
 class Value:
@@ -173,6 +174,9 @@ class Variable:
         self.value = None
         # debugger("Variable {} created".format(self.name))
 
+    def __str__(self):
+        return self.name
+
     def __repr__(self):
         return self.name
 
@@ -187,3 +191,22 @@ class Variable:
             return self.name != other.name
         else:
             return True
+"""
+    def __pow__(self, power, modulo=None):
+        if isinstance(power, float):
+            str_expression = self.name + "^" + str(power)
+            tokenmanager = TokenManager(str_expression)
+            factor = Factor(tokenmanager)
+            factor.parse()
+            factor.calculate()
+            return factor
+
+    def __rpow__(self, other):
+        if isinstance(other, float):
+            str_expression = other + "^" + str(other)
+            tokenmanager = TokenManager(str_expression)
+            factor = Factor(tokenmanager)
+            factor.parse()
+            factor.calculate()
+            return factor
+"""

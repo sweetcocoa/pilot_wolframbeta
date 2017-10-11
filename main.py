@@ -27,8 +27,17 @@ test_expressions = [
     "pi + e",
     "pow(10,sin(0.5*pi)+e)",
     "sin(asin(0.9))",
-    # "x + x",
+    "-sin(asin(0.9))",
+    "x + x",
+    "5*x^2*y + 2*x^2*y",
+    "5*x^2*y - 2*x^2*y",
     "2*x*6*x*y/x*y*y + x",
+    "x^x^x + 2*x^x^x",
+    "sin(x) + sin(x)",
+    "x^(x*2) + x^(2*x)",
+    "x^(2*x^3+1) + x^(1+2*x^3)",
+    "(x^2 + x) + (x^2 + 3*x)",
+    # "2*x*6*x*y^3/x^3*y*y + x",
     # "x^2 + x",
     #"x + sin(x) + y + f(3,4)^2"
 ]
@@ -41,6 +50,7 @@ for test_expression in test_expressions:
     expr = Expr(token)
     expr.parse()
     expr.calculate()
+    print(expr, end=' = ')
     print(expr.value, "!")
     #print_tree(expr)
 
