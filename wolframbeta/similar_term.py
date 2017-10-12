@@ -7,6 +7,7 @@ CONST_KEY = "$const"
 class Variable(str):
     pass
 
+
 class TermDict(dict):
     """
     단일항 dictionary
@@ -33,6 +34,27 @@ class TermDict(dict):
                             ret_dict.pop(other_key, None)
                     else:
                         ret_dict[other_key] = other[other_key]
+            return ret_dict
+
+    def __add__(self, other):
+        if isinstance(other, SimilarTermsDict):
+            return other + self
+
+    def __neg__(self):
+        ret_dict = TermDict(self)
+        ret_dict.constant *= -1
+        return ret_dict
+
+    def __sub__(self, other):
+        if isinstance(other, SimilarTermsDict):
+            return other - self
+
+    def __pow__(self, power, modulo=None):
+        if isinstance(power, float):
+            ret_dict = TermDict(self)
+            ret_dict.constant = ret_dict.constant ** power
+            for key in ret_dict.keys():
+                ret_dict[key] *= power
             return ret_dict
 
     def is_constant(self):
@@ -125,6 +147,10 @@ class SimilarTermsDict(dict):
         elif isinstance(other, float):
             ret_dict[CONST_KEY] += other
 
+        elif isinstance(other, TermDict):
+            new_dict = self.get_std_from_td(other)
+            ret_dict = self - new_dict
+            pass
         else:
             raise_error("Unexpected type's STD add ops encountered, {}".format(type(other)))
         return ret_dict
@@ -165,10 +191,16 @@ class SimilarTermsDict(dict):
                 for key in ret_dict.keys():
                     ret_dict[key] *= other
 
+        elif isinstance(other, TermDict):
+            new_dict = self.get_std_from_td(other)
+            return self * new_dict
+
         if ret_dict is None:
             raise_error("Unexpected type's STD mul ops encountered, {}".format(type(other)))
 
         return ret_dict
+
+    # def __truediv__(self, other):
 
     def __rmul__(self, other):
         return self.__mul__(other)
@@ -178,6 +210,22 @@ class SimilarTermsDict(dict):
         for key in new_dict.keys():
             new_dict[key] = -new_dict[key]
         return new_dict
+
+    def __truediv__(self, other):
+        # TODO : 없는 변수를 나눌 때 1/x, 1/x^2..
+        """
+        :param other: TermDict, One Term
+        :return: divided SimtermsDict
+        """
+        if isinstance(other, TermDict):
+            ret_dict = SimilarTermsDict(self)
+            if other.is_constant():
+                for key in ret_dict.keys():
+                    ret_dict[key] /= other.constant
+            else:
+                raise_error("divide by non-constant is not provided {}".format(str(other)))
+                return None
+            return ret_dict
 
     def __sub__(self, other):
         return self.__add__(-other)
@@ -191,4 +239,19 @@ class SimilarTermsDict(dict):
         else:
             return False
 
+    def has_one_term(self):
+        if len(self) == 2:
+            if self[CONST_KEY] == 0:
+                return True
+            else:
+                return False
+        elif len(self) == 1:
+            return True
+        else:
+            return False
+
+    def get_std_from_td(self, termdict):
+        ret_std = SimilarTermsDict()
+        ret_std[termdict] = termdict.constant
+        return ret_std
 
