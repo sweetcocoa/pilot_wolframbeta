@@ -17,7 +17,7 @@ class TokenManager:
         CHARS += CHARS.upper()
         CHARS += "_"
 
-        OPS = "+-*/^(),%"
+        OPS = "+-*/^(),"
 
         tokens = []
         number_buff = ""

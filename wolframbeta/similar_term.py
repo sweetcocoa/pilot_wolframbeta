@@ -5,22 +5,93 @@ CONST_KEY = "$const"
 
 
 class Variable(str):
-    def __init__(self, *args):
-        super(self.__class__, self).__init__(*args)
-
+    pass
 
 class TermDict(dict):
     """
-
+    단일항 dictionary
+    key : factor
+    value : power
     """
     def __init__(self, *args):
         super(self.__class__, self).__init__(*args)
+        if len(args) > 0 and isinstance(args[0], TermDict):
+            self.constant = args[0].constant
+        else:
+            self.constant = 1
 
-    def get_term_str(self):
-        """
-        :return: term string
-        """
-        pass
+    def __mul__(self, other):
+        if isinstance(other, TermDict):
+            ret_dict = TermDict(self)
+            const = other.constant
+            ret_dict.constant *= const
+            if not other.is_constant():
+                for other_key in other.keys():
+                    if other_key in ret_dict.keys():
+                        ret_dict[other_key] += other[other_key]
+                        if ret_dict[other_key] == 0:
+                            ret_dict.pop(other_key, None)
+                    else:
+                        ret_dict[other_key] = other[other_key]
+            return ret_dict
+
+    def is_constant(self):
+        if len(self.keys()) == 0:
+            return True
+        else:
+            return False
+
+    def __truediv__(self, other):
+        if isinstance(other, TermDict):
+            ret_dict = TermDict(self)
+            const = other.constant
+            ret_dict.constant /= const
+            if not other.is_constant():
+                for other_key in other.keys():
+                    if other_key in ret_dict.keys():
+                        ret_dict[other_key] -= other[other_key]
+                        if ret_dict[other_key] == 0:
+                            ret_dict.pop(other_key, None)
+                    else:
+                        ret_dict[other_key] = other[other_key]
+            return ret_dict
+
+    def __hash__(self):
+        return hash(str(self))
+
+    def __eq__(self, other):
+        if isinstance(other, str):
+            return str(self) == other
+        return super(self.__class__, self).__eq__(other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __str__(self):
+        if self.is_constant():
+            return CONST_KEY
+        ret_str = ""
+        for i, key in enumerate(sorted(self.keys())):
+            if self[key] != 1:
+                ret_str += key + '^' + str(self[key])
+            else:
+                ret_str += key
+            if i == len(self.keys()) - 1:
+                pass
+            else:
+                ret_str += '*'
+        debugger(ret_str)
+        return ret_str
+
+    def __lt__(self, other):
+        if isinstance(other, str):
+            # const key
+            return False
+        elif isinstance(other, TermDict):
+            if len(self) != len(other):
+                return len(self) < len(other)
+            else:
+                return str(self) < str(other)
 
 
 class SimilarTermsDict(dict):
@@ -37,6 +108,8 @@ class SimilarTermsDict(dict):
     """
     def __init__(self, *args):
         super(self.__class__, self).__init__(*args)
+        if not CONST_KEY in self.keys():
+            self[CONST_KEY] = 0
 
     def __add__(self, other):
         ret_dict = SimilarTermsDict(self)
@@ -44,18 +117,13 @@ class SimilarTermsDict(dict):
             for other_key in other.keys():
                 if other_key in ret_dict.keys():
                     ret_dict[other_key] += other[other_key]
-                    if ret_dict[other_key] == 0:
+                    if ret_dict[other_key] == 0 and other_key != CONST_KEY:
                         ret_dict.pop(other_key, None)
                 else:
                     ret_dict[other_key] = other[other_key]
         
         elif isinstance(other, float):
-            if CONST_KEY in ret_dict.keys():
-                ret_dict[CONST_KEY] += other
-                if ret_dict[CONST_KEY] == 0:
-                    ret_dict.pop(CONST_KEY, None)
-            else:
-                ret_dict[CONST_KEY] = other
+            ret_dict[CONST_KEY] += other
 
         else:
             raise_error("Unexpected type's STD add ops encountered, {}".format(type(other)))
@@ -86,7 +154,7 @@ class SimilarTermsDict(dict):
                     else:
                         ret_dict[new_key] = other[other_key] * self[key]
 
-                    if ret_dict[new_key] == 0:
+                    if ret_dict[new_key] == 0 and new_key != CONST_KEY:
                         ret_dict.pop(new_key, None)
 
         elif isinstance(other, float):
@@ -116,5 +184,11 @@ class SimilarTermsDict(dict):
 
     def __rsub__(self, other):
         return -self.__sub__(other)
+
+    def is_constant(self):
+        if len(self.keys()) == 1:
+            return True
+        else:
+            return False
 
 
