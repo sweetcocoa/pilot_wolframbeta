@@ -11,7 +11,7 @@ test_expressions = [
     "x/3",
     "(x)/3",
     "(x+1)/3",
-    "(x+1)*(x+1)",
+    "(x)*(x)",
     "(x+1)*(x+1)/4",
     "(1-x)*(1+x)",
     "(x^1.4+1)*(x^1.4+1)",
@@ -28,12 +28,9 @@ test_expressions = [
     "x + x",
     "5*x^2*y+2 + 2*x^2*y",
     "5*x^2*y+2 - 2*x^2*y",
-    "2*x*6*x*y/x*y*y + x",
     "cos(0.775)",
     "sec(0.5)",
     "sec(0.5)*cos(0.5)",
-    "pow(3,4)",
-    "pow(1+2,4)",
     "log(10,3)",
     "pi + e",
     "pow(10,sin(0.5*pi)+e)",
@@ -46,12 +43,19 @@ test_expressions = [
     "sin(x+2)+sin(2+x)",
     "sin(pi/3)^3",
     "sin(pi/3)^3/2 + 1",
-    "pow(x,2)",
     "(x^2 + x) + (x^2 + 3*x)",
-    "2*x*6*x*y^3/x^3*y*y + x",
     "x^2 + x",
     "sin(sin(x+2))+sin(sin(x+2))",
-    # "e^x",
+    "e^x",
+    " e^(2*x)",
+    "(e^2)^x",
+    "x^2 + x^2",
+    "2^x + 2^x",
+    "(e^2)^x + e^x",
+     "e^(2*x) + (e^2)^x + e^x",
+    "(x)^2",
+    "(x)^2^2 + x^4",
+    "(x*y)^2 + x^2*y^2",
     #"x + sin(x) + y + f(3,4)^2"
 ]
 
@@ -64,7 +68,7 @@ for test_expression in test_expressions:
     expr.parse()
     expr.calculate()
     #print(expr.value)
-    print(expr.similar_terms_dict, end=' = ')
+    #print(expr.similar_terms_dict, end=' = ')
     print(expr)
     #print_tree(expr)
 

@@ -35,10 +35,27 @@ class TermDict(dict):
                     else:
                         ret_dict[other_key] = other[other_key]
             return ret_dict
+        elif isinstance(other, SimilarTermsDict):
+            return other * self
 
     def __add__(self, other):
         if isinstance(other, SimilarTermsDict):
             return other + self
+        elif isinstance(other, TermDict):
+            # Addition between two term
+            if str(self) == str(other):
+                if self.constant + other.constant == 0:
+                    ret_dict = TermDict()
+                else:
+                    ret_dict = TermDict(self)
+                    ret_dict.constant += other.constant
+
+            else:
+                ret_dict = SimilarTermsDict()
+                ret_dict[self] = self.constant
+                ret_dict[other] = other.constant
+
+            return ret_dict
 
     def __neg__(self):
         ret_dict = TermDict(self)
@@ -47,7 +64,19 @@ class TermDict(dict):
 
     def __sub__(self, other):
         if isinstance(other, SimilarTermsDict):
-            return other - self
+            return self + (-other)
+        elif isinstance(other, TermDict):
+            if str(self) == str(other):
+                if self.constant - other.constant == 0:
+                    ret_dict = TermDict()
+                else:
+                    ret_dict = TermDict(self)
+                    ret_dict.constant -= other.constant
+            else:
+                ret_dict = SimilarTermsDict()
+                ret_dict[self] = self.constant
+                ret_dict[other] = -other.constant
+            return ret_dict
 
     def __pow__(self, power, modulo=None):
         if isinstance(power, float):
@@ -115,6 +144,30 @@ class TermDict(dict):
             else:
                 return str(self) < str(other)
 
+    def has_one_term(self):
+        return True
+
+    def __pow__(self, power, modulo=None):
+        if isinstance(power, float):
+            ret_dict = TermDict(self)
+            ret_dict.constant = ret_dict.constant**power
+            for key in ret_dict.keys():
+                ret_dict[key] = ret_dict[key]*power
+            return ret_dict
+
+    def __rpow__(self, other):
+        if isinstance(other, float):
+            if self.is_constant():
+                ret_dict = TermDict(self)
+                ret_dict.constant = other ** ret_dict.constant
+            else:
+                # 2^(3*x) => (2^3) ^ x
+                base = other ** self.constant
+                ret_dict = TermDict()
+                ret_dict[str(base)+'^'+str(self)] = 1
+            return ret_dict
+
+
 
 class SimilarTermsDict(dict):
     """
@@ -130,8 +183,10 @@ class SimilarTermsDict(dict):
     """
     def __init__(self, *args):
         super(self.__class__, self).__init__(*args)
-        if not CONST_KEY in self.keys():
+        if CONST_KEY not in self.keys():
             self[CONST_KEY] = 0
+        # if len(args) > 0 and isinstance(args[0], TermDict):
+        #     self[args[0]] = args[0].constant
 
     def __add__(self, other):
         ret_dict = SimilarTermsDict(self)
@@ -227,6 +282,21 @@ class SimilarTermsDict(dict):
                 return None
             return ret_dict
 
+        if isinstance(other, SimilarTermsDict):
+            ret_dict = SimilarTermsDict(self)
+            if other.is_constant():
+                for key in ret_dict.keys():
+                    ret_dict[key] /= other[CONST_KEY]
+                return ret_dict
+            elif other.has_one_term():
+                raise_error("divide by variable terms is not provided")
+                pass
+            else:
+                raise_error("divide by multiple terms is not provided")
+                return None
+
+
+
     def __sub__(self, other):
         return self.__add__(-other)
 
@@ -255,3 +325,65 @@ class SimilarTermsDict(dict):
         ret_std[termdict] = termdict.constant
         return ret_std
 
+    def get_one_term(self):
+        """
+        Use only when self has one term
+        :return: key, item pair
+        """
+        for key, value in self.items():
+            if key != CONST_KEY:
+                return key, value
+            elif key == CONST_KEY and value != 0:
+                return key, value
+        return CONST_KEY, 0
+    # def __pow__(self, power, modulo=None):
+    #     if isinstance(power, float):
+    #         ret_dict = TermDict(self)
+    #         ret_dict.constant = ret_dict.constant ** power
+    #         for key in ret_dict.keys():
+    #             ret_dict[key] *= power
+    #         return ret_dict
+
+    def __rpow__(self, other):
+        if isinstance(other, float):
+            if self.is_constant():
+                ret_dict = SimilarTermsDict(self)
+                ret_dict[CONST_KEY] = other ** ret_dict.constant
+            else:
+                ret_dict = SimilarTermsDict()
+                for key in self.keys():
+                    term_dict = other ** key
+                    ret_dict[term_dict] = term_dict.constant
+
+            return ret_dict
+
+    def __str__(self):
+        ret_str = ""
+        if self.is_constant():
+            return str(self[CONST_KEY])
+        else:
+            for i, (term, const) in enumerate(reversed(sorted(self.similar_terms_dict.items()))):
+                if i == 0 and const > 0:
+                    if const == 1:
+                        ret_str += str(term)
+                    else:
+                        ret_str += str(const) + '*' + str(term)
+                elif const < 0:
+                    if term == CONST_KEY:
+                        ret_str += '-' + str(-const)
+                    elif const == -1:
+                        ret_str += '-' + str(term)
+                    else:
+                        ret_str += '-' + str(-const) + '*' + str(term)
+                elif const > 0:
+                    if const == 1:
+                        if term == CONST_KEY:
+                            ret_str += '+' + str(const)
+                        else:
+                            ret_str += '+' + str(term)
+                    else:
+                        if term == CONST_KEY:
+                            ret_str += '+' + str(const)
+                        else:
+                            ret_str += '+' + str(const) + '*' + str(term)
+        return ret_str

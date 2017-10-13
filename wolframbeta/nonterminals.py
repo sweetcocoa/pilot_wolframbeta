@@ -35,7 +35,6 @@ class Nonterminal:
             self.tokenmanager = arg
 
         self.childs = list()
-        self.unrolled_childs = list()
 
     def parse(self):
         return
@@ -45,9 +44,6 @@ class Nonterminal:
 
     def add_childs(self, newobject):
         self.childs.append(newobject)
-
-    def add_unrolled_childs(self, newobject):
-        self.unrolled_childs.append(newobject)
 
     def has_childs(self):
         if len(self.childs) > 0:
@@ -73,15 +69,6 @@ class Expr(Nonterminal):
         expr_tail.parse()
         self.add_childs(expr_tail)
 
-        while expr_tail.has_childs():
-            ops = expr_tail.get_ops()
-            self.add_unrolled_childs(ops)
-
-            expr = expr_tail.get_expr()
-            term = expr.get_term()
-            self.add_unrolled_childs(term)
-            expr_tail = expr.get_tail()
-
     def calculate(self):
         if self.similar_terms_dict is not None:
             return
@@ -89,18 +76,29 @@ class Expr(Nonterminal):
         self.similar_terms_dict = SimilarTermsDict()
         term = self.get_term()
         term.calculate()
-        if term.has_multiple_terms():
-            self.similar_terms_dict = term.similar_terms_dict
-        else:
-            self.similar_terms_dict[term.term_dict] = term.term_dict.constant
+        self.similar_terms_dict = term.similar_terms_dict
+
         expr_tail = self.get_tail()
-        debugger(self.similar_terms_dict)
         if expr_tail.has_childs():
             ops = expr_tail.get_ops()
             expr = expr_tail.get_expr()
             expr.calculate()
             debugger("tail's expr's dict: ", self.similar_terms_dict)
             self.similar_terms_dict = calculate_ops(self.similar_terms_dict, ops, expr.similar_terms_dict)
+
+    def calculate_variable(self, variable_dict):
+        """
+        :param variable_dict: { Variable:float ... }
+        :return: calculated value
+        """
+        similar_new_dict = SimilarTermsDict()
+        for term, const in self.similar_terms_dict.items():
+            if term == CONST_KEY:
+                similar_new_dict = similar_new_dict + const
+            else:
+                for var, power in term:
+                    if var in variable_dict.keys():
+                        pass
 
     def get_term(self):
         return self.childs[0]
@@ -184,10 +182,6 @@ class Term(Nonterminal):
     <Term_tail> := <multi> <Term> | empty
     """
     def __init__(self, arg):
-        if isinstance(arg, TermDict):
-            self.term_dict = arg
-        else:
-            self.term_dict = None
         super(self.__class__, self).__init__(arg)
         self.similar_terms_dict = None
 
@@ -199,78 +193,28 @@ class Term(Nonterminal):
         term_tail.parse()
         self.add_childs(term_tail)
 
-        while term_tail.has_childs():
-            ops = term_tail.get_ops()
-            self.add_unrolled_childs(ops)
-
-            term = term_tail.get_term()
-            factor = term.get_factor()
-            self.add_unrolled_childs(factor)
-            term_tail = term.get_tail()
-
     def calculate(self):
-        if self.term_dict is not None or self.similar_terms_dict is not None:
+        if self.similar_terms_dict is not None:
             return
 
         factor = self.get_factor()
         factor.calculate()
-        if factor.has_multiple_terms():
-            self.similar_terms_dict = factor.similar_terms_dict
-        self.term_dict = factor.term_dict
+        self.similar_terms_dict = factor.similar_terms_dict
         term_tail = self.get_tail()
-        debugger("term dict of Term", self.term_dict)
+
         while term_tail.has_childs():
             term = term_tail.get_term()
             factor = term.get_factor()
             factor.calculate()
             ops = term_tail.get_ops()
-            if self.has_multiple_terms():
-                if factor.has_multiple_terms():
-                    self.similar_terms_dict = calculate_ops(self.similar_terms_dict, ops, factor.similar_terms_dict)
-                else:
-                    self.similar_terms_dict = calculate_ops(self.similar_terms_dict, ops, factor.term_dict)
-            else:
-                if factor.has_multiple_terms():
-                    self.similar_terms_dict = calculate_ops(self.term_dict, ops, factor.similar_terms_dict)
-                else:
-                    self.term_dict = calculate_ops(self.term_dict, ops, factor.term_dict)
-
+            self.similar_terms_dict = calculate_ops(self.similar_terms_dict, ops, factor.similar_terms_dict)
             term_tail = term.get_tail()
-
-    def __str__(self):
-        if self.term_dict is None:
-            return "None_Term"
-        ret_str = ""
-
-        for i, (factor, power) in enumerate(sorted(self.term_dict.items())):
-            if i == 0:
-                if power == -1:
-                    ret_str = '1/'+str(factor)
-                elif power < 0:
-                    ret_str = '1/'+str(factor) + '^' + str(power)
-                elif power == 1:
-                    ret_str = str(factor)
-                elif power > 0:
-                    ret_str = str(factor)+'^'+str(power)
-            else:
-                if power == -1:
-                    ret_str += '/' + str(factor)
-                elif power < 0:
-                    ret_str += '/' + str(factor) + '^' + str(power)
-                elif power == 1:
-                    ret_str += '*' + str(factor)
-                elif power > 0:
-                    ret_str += '*' + str(factor) + '^' + str(power)
-        return ret_str
 
     def get_factor(self):
         return self.childs[0]
 
     def get_tail(self):
         return self.childs[-1]
-
-    def has_multiple_terms(self):
-        return self.similar_terms_dict is not None
 
 
 class TermTail(Nonterminal):
@@ -308,10 +252,6 @@ class Factor(Nonterminal):
     := <function> = <func><params>
     """
     def __init__(self, arg):
-        if isinstance(arg, TermDict):
-            self.term_dict = arg
-        else:
-            self.term_dict = None
         super(self.__class__, self).__init__(arg)
         self.negative_sign = 1
         self.similar_terms_dict = None  # ( expr )'s expr value
@@ -325,65 +265,45 @@ class Factor(Nonterminal):
         elif token == '(':
             # ( <expr> )
             self.add_childs(token)
-            self.add_unrolled_childs(token)
             expr = Expr(self.tokenmanager)
             expr.parse()
             self.add_childs(expr)
-            self.add_unrolled_childs(expr)
             token = self.tokenmanager.get_next_token()
             self.add_childs(token)
-            self.add_unrolled_childs(token)
 
         elif token == '-':
             sign = token
             self.add_childs(sign)
-            self.add_unrolled_childs(sign)
             self.negative_sign = -1
             factor = Factor(self.tokenmanager)
             factor.parse()
             self.add_childs(factor)
-            self.add_unrolled_childs(factor)
 
         elif token in BUILTIN_FUNCTIONS:
             func = Func(self.tokenmanager, token)
             func.parse()
             self.add_childs(func)
-            self.add_unrolled_childs(func)
             # elif token in ASSIGNED_FUNCTIONS
             # elif token in ASSIGNED_VARIABLES
         else:  # token is Variable
             variable = Variable(token)
             self.add_childs(variable)
-            self.add_unrolled_childs(variable)
 
         factor_tail = FactorTail(self.tokenmanager)
         factor_tail.parse()
         self.add_childs(factor_tail)
 
-        while factor_tail.has_childs():
-            power = factor_tail.get_power()
-            self.add_unrolled_childs(power)
-            factor = factor_tail.get_factor()
-            self.add_unrolled_childs(factor)
-            factor_tail = factor.get_tail()
-
-    def add_variable(self, variable):
-        if self.variable_set is None:
-            self.variable_set = set()
-        self.variable_set.add(variable)
-
     def calculate(self):
-        if self.term_dict is not None:
+        if self.similar_terms_dict is not None:
             return
 
-        self.term_dict = TermDict()
+        self.similar_terms_dict = SimilarTermsDict()
         factor_tail = self.get_tail()
 
         if self.negative_sign == -1:
-            self.term_dict.constant *= -1
             factor = self.childs[1]
             factor.calculate()
-            self.term_dict = self.term_dict * factor.term_dict
+            self.similar_terms_dict = -factor.similar_terms_dict
 
         if isinstance(self.childs[0], float):
             number = self.childs[0]
@@ -393,77 +313,98 @@ class Factor(Nonterminal):
                 factor_power.calculate()
                 if factor_power.is_constant():
                     # number^number
-                    self.term_dict.constant *= number ** factor_power.get_constant()
+                    exponent = factor_power.get_constant()
+                    self.similar_terms_dict[CONST_KEY] = number ** exponent
+                elif factor_power.has_one_term():
+                    # number^term
+                    key, value = factor_power.similar_terms_dict.get_one_term()
+                    term_dict = number**key
+                    self.similar_terms_dict[term_dict] = value
                 else:
-                    # number^variable
-                    if factor_power.has_one_term():
-                        const = factor_power.get_constant()
-
-                        pass
-                    else:
-                        pass
+                    # number ^ (multi-term)
                     pass
             else:
                 # number without power
-                self.term_dict.constant *= number
+                self.similar_terms_dict[CONST_KEY] = number
         elif self.childs[0] == '(':
             expr = self.childs[1]
             expr.calculate()
+
             if factor_tail.has_childs():
-                # (expr)^factor 인 경우
-                # 단일항인 경우, 다항인 경우
-                pass
+                # (expr, term, constant)^(constant, term, expr)
+                factor_power = factor_tail.get_factor()
+                factor_power.calculate()\
+
+                if expr.is_constant():
+                    number = expr.get_constant()
+                    if factor_power.is_constant():
+                        # (number) ^ number
+                        exponent = factor_power.get_constant()
+                        self.similar_terms_dict[CONST_KEY] = number ** exponent
+                    elif factor_power.has_one_term():
+                        # (number) ^ term
+                        key, value = factor_power.similar_terms_dict.get_one_term()
+                        term_dict = number ** key
+                        self.similar_terms_dict[term_dict] = value
+                    else:
+                        # (number) ^ (muiti-term)
+                        pass
+                    pass
+                elif expr.has_one_term():
+                    if factor_power.is_constant():
+                        # (term)^(constant)
+                        exponent = factor_power.get_constant()
+                        key, value = expr.similar_terms_dict.get_one_term()
+                        key.constant = 1
+                        term_dict = key ** exponent
+                        self.similar_terms_dict[term_dict] = value ** exponent
+                    else:
+                        raise_error("(term)^(expr, term) is not supported form")
+                    pass
+                else:
+                    if factor_power.is_constant():
+                        pass
+                    else:
+                        raise_error("(expr)^(expr, term) Does not supported.")
+                    pass
+
             else:
                 # (expr) 인 경우 :
-                if expr.is_constant():
-                    # (expr) 이 상수인 경우
-                    self.term_dict.constant *= expr.get_constant()
-                else:
-                    # (expr) 이 상수가 아닌 경우
-                    if expr.has_one_term():
-                        # 단일항인 경우
-                        new_term = None
-                        for term, const in expr.similar_terms_dict.items():
-                            if term != CONST_KEY:
-                                new_term = Term(str(term))
-                                new_term.parse()
-                                new_term.calculate()
-                                new_term.term_dict.constant = const
-                        self.term_dict = new_term.term_dict
-                    else:
-                        # 다항식인 경우
-                        self.similar_terms_dict = expr.similar_terms_dict
+                self.similar_terms_dict = expr.similar_terms_dict
 
         elif isinstance(self.childs[0], Variable):
             variable = self.childs[0]
+            term_dict = TermDict()
+            term_dict[variable] = 1
             if factor_tail.has_childs():
                 # variable^factor 인 경우
                 factor_power = factor_tail.get_factor()
                 factor_power.calculate()
                 if factor_power.is_constant():
                     # variable^constant
-                    self.term_dict[variable] = factor_power.term_dict.constant
-                    pass
+                    term_dict[variable] = factor_power.get_constant()
+                    self.similar_terms_dict[term_dict] = 1
                 else:
                     # variable^(some expression containing varaible)
                     raise_error("variable^variable is not supported. error - {}^{}".format(self.childs[0], str(factor_power)))
             else:
                 # varaible without factor
-                self.term_dict[variable] = 1
+                self.similar_terms_dict[term_dict] = 1
 
         elif isinstance(self.childs[0], Func):
             func = self.childs[0]
             func.calculate()
-            self.term_dict = func.term_dict
+            term_dict = func.term_dict
             if factor_tail.has_childs():
                 factor_power = factor_tail.get_factor()
                 factor_power.calculate()
                 if factor_power.is_constant():
-                    self.term_dict = self.term_dict ** factor_power.get_constant()
+                    term_dict = term_dict ** factor_power.get_constant()
                     pass
                 else:
                     # func^(expr, term .. )
                     pass
+            self.similar_terms_dict[term_dict] = term_dict.constant
             pass
 
     def __str__(self):
@@ -481,32 +422,15 @@ class Factor(Nonterminal):
         return ret_str
 
     def is_constant(self):
-        if self.similar_terms_dict is not None:
-            return self.similar_terms_dict.is_constant()
-        if self.term_dict is not None:
-            return self.term_dict.is_constant()
-        else:
-            return False
+        #if self.similar_terms_dict is not None:
+        return self.similar_terms_dict.is_constant()
 
     def get_constant(self):
-        if self.similar_terms_dict is not None:
-            return self.similar_terms_dict[CONST_KEY]
-        if self.term_dict is not None:
-            return self.term_dict.constant
-        else:
-            return None
+        return self.similar_terms_dict[CONST_KEY]
 
     def has_one_term(self):
-        if self.similar_terms_dict is None:
-            if self.term_dict is not None:
-                return True
-            else:
-                return False
-        else:
-            return self.similar_terms_dict.has_one_term()
+        return self.similar_terms_dict.has_one_term()
 
-    def has_multiple_terms(self):
-        return self.similar_terms_dict is not None
 
 class FactorTail(Nonterminal):
     """
@@ -635,25 +559,20 @@ class Params(Nonterminal):
         token = self.tokenmanager.get_next_token()
         # token == '('
         self.add_childs(token)
-        self.add_unrolled_childs(token)
         expr = Expr(self.tokenmanager)
         expr.parse()
         self.add_childs(expr)
-        self.add_unrolled_childs(expr)
         param_tail = ParamTail(self.tokenmanager)
         param_tail.parse()
         self.add_childs(param_tail)
 
         while param_tail.has_childs():
             comma = param_tail.get_comma()
-            self.add_unrolled_childs(comma)
             expr = param_tail.get_expr()
-            self.add_unrolled_childs(expr)
             param_tail = param_tail.get_tail()
 
         token = self.tokenmanager.get_next_token()  # ')' token should exists
         self.add_childs(token)
-        self.add_unrolled_childs(token)
 
     def get_tail(self):
         return self.childs[2]

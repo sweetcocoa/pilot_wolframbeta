@@ -26,8 +26,6 @@ BUILTIN_FUNCTIONS = {
     "cosec": cosec,
     "cot": cot,
     "sec": sec,
-    "exp": math.exp,
-    "pow": math.pow,
     "log": math.log,
 }
 
@@ -44,11 +42,9 @@ BUILTIN_FUNCTIONS_WITH_ONE_PARAM = {
     "cosec": cosec,
     "cot": cot,
     "sec": sec,
-    "exp": math.exp,
 }
 
 BUILTIN_FUNCTIONS_WITH_TWO_PARAM = {
-    "pow": math.pow,
     "log": math.log,
 }
 
