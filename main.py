@@ -34,7 +34,6 @@ test_expressions = [
     "sec(0.5)*cos(0.5)",
     "log(10,3)",
     "pi + e",
-    "pow(10,sin(0.5*pi)+e)",
     "sin(asin(0.9))",
     "-sin(asin(0.9))",
     "sin(x) + sin(x)",
@@ -53,10 +52,21 @@ test_expressions = [
     "x^2 + x^2",
     "2^x + 2^x",
     "(e^2)^x + e^x",
+    "(e^2)^x",
+    "e^(2*x)",
+    "e^(2*x) + (e^2)^x",
      "e^(2*x) + (e^2)^x + e^x",
+    "(e^2)^x + e^x",
     "(x)^2",
+    "x+y",
     "(x)^2^2 + x^4",
     "(x*y)^2 + x^2*y^2",
+    "(sin(3+y))",
+    "sin(x+y+2)+(sin(3+y))",
+    "sin(x+y+2)",
+    "sin(x+y)+(sin(3+y))",
+    "sin(x+y)*(sin(3+y)^2)",
+    "sin(x+y)*(sin(3+y))^2",
     #"x + sin(x) + y + f(3,4)^2"
 ]
 
@@ -72,6 +82,6 @@ for test_expression in test_expressions:
     print(expr, end=' = ')
     # for i in np.linspace(-5, 5, 100):
     #     print("x : {}$".format(i), expr.calculate_variable({'x': i}))
-    print('$', expr.calculate_variable({'x':3}))
+    print('$', expr.calculate_variable({'x':3.0}))
 
 

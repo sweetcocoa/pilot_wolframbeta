@@ -8,6 +8,13 @@ class Variable(str):
     pass
 
 
+class Function(str):
+    def __new__(cls, value, *args, **kwargs):
+        return str.__new__(cls, value)
+
+    def __init__(self, value, func):
+        self.func = func
+
 class TermDict(dict):
     """
     단일항 dictionary
@@ -91,6 +98,9 @@ class TermDict(dict):
             return True
         else:
             return False
+
+    def get_constant(self):
+        return self.constant
 
     def __truediv__(self, other):
         if isinstance(other, TermDict):
@@ -303,6 +313,9 @@ class SimilarTermsDict(dict):
             return True
         else:
             return False
+
+    def get_constant(self):
+        return self[CONST_KEY]
 
     def has_one_term(self):
         if len(self) == 2:

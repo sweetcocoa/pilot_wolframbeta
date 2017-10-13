@@ -96,16 +96,36 @@ class Expr(Nonterminal):
             if term == CONST_KEY:
                 similar_new_dict = similar_new_dict + const
             else:
-                new_term = TermDict(term)
-                new_term.constant = const
+                new_term_dict = TermDict(term)
+                new_term_dict.constant = const
                 for var, power in term.items():
-                    if var in variable_dict.keys():
-                        new_term.constant *= variable_dict[var] ** power
-                        new_term.pop(var, None)
-                if new_term in similar_new_dict.keys():
-                    similar_new_dict[new_term] += new_term.constant
+                    if isinstance(var, Function):
+                        """
+                        var : sin(x+y), 1
+                        func_term : sin(3+y), 1
+                        sin(3+y) + sin(x+y) -> x:3 
+                        2*sin(3+y)
+                           """
+                        func_term = var.func.calculate_variable(variable_dict)
+                        if func_term.is_constant():
+                            new_term_dict.constant *= func_term.get_constant() ** power
+                            new_term_dict.pop(var, None)
+                        else:
+                            if str(func_term) in new_term_dict.keys():
+                                # new_term_dict[str(func_term)] += power
+                                if new_term_dict[str(func_term)] == 0:
+                                    new_term_dict.pop(var, None)
+                            else:
+                                new_term_dict[str(func_term)] = power
+                                new_term_dict.pop(var, None)
+
+                    elif var in variable_dict.keys():
+                        new_term_dict.constant *= variable_dict[var] ** power
+                        new_term_dict.pop(var, None)
+                if new_term_dict in similar_new_dict.keys():
+                    similar_new_dict[new_term_dict] += new_term_dict.constant
                 else:
-                    similar_new_dict[new_term] = new_term.constant
+                    similar_new_dict[new_term_dict] = new_term_dict.constant
 
         return similar_new_dict
 
@@ -130,35 +150,7 @@ class Expr(Nonterminal):
     def __str__(self):
         if self.similar_terms_dict is None:
             return "None_Expr"
-        ret_str = ""
-        if self.is_constant():
-            ret_str += str(self.get_constant())
-        else:
-            for i, (term, const) in enumerate(reversed(sorted(self.similar_terms_dict.items()))):
-                if i == 0 and const > 0:
-                    if const == 1:
-                        ret_str += str(term)
-                    else:
-                        ret_str += str(const) + '*' + str(term)
-                elif const < 0:
-                    if term == CONST_KEY:
-                        ret_str += '-' + str(-const)
-                    elif const == -1:
-                        ret_str += '-' + str(term)
-                    else:
-                        ret_str += '-' + str(-const) + '*' + str(term)
-                elif const > 0:
-                    if const == 1:
-                        if term == CONST_KEY:
-                            ret_str += '+' + str(const)
-                        else:
-                            ret_str += '+' + str(term)
-                    else:
-                        if term == CONST_KEY:
-                            ret_str += '+' + str(const)
-                        else:
-                            ret_str += '+' + str(const) + '*' + str(term)
-        return ret_str
+        return str(self.similar_terms_dict)
 
 
 class ExprTail(Nonterminal):
@@ -326,9 +318,9 @@ class Factor(Nonterminal):
                     self.similar_terms_dict[CONST_KEY] = number ** exponent
                 elif factor_power.has_one_term():
                     # number^term
-                    key, value = factor_power.similar_terms_dict.get_one_term()
-                    term_dict = number**key
-                    self.similar_terms_dict[term_dict] = value
+                    key_term_dict, value = factor_power.similar_terms_dict.get_one_term()
+                    term_dict = (number**value)**key_term_dict
+                    self.similar_terms_dict[term_dict] = 1
                 else:
                     # number ^ (multi-term)
                     pass
@@ -352,9 +344,9 @@ class Factor(Nonterminal):
                         self.similar_terms_dict[CONST_KEY] = number ** exponent
                     elif factor_power.has_one_term():
                         # (number) ^ term
-                        key, value = factor_power.similar_terms_dict.get_one_term()
-                        term_dict = number ** key
-                        self.similar_terms_dict[term_dict] = value
+                        key_term_dict, value = factor_power.similar_terms_dict.get_one_term()
+                        term_dict = (number ** value) ** key_term_dict
+                        self.similar_terms_dict[term_dict] = 1
                     else:
                         # (number) ^ (muiti-term)
                         pass
@@ -403,13 +395,15 @@ class Factor(Nonterminal):
         elif isinstance(self.childs[0], Func):
             func = self.childs[0]
             func.calculate()
-            term_dict = func.term_dict
+            function = Function(value=str(func), func=func)
+            term_dict = TermDict()
+            term_dict[function] = 1
+
             if factor_tail.has_childs():
                 factor_power = factor_tail.get_factor()
                 factor_power.calculate()
                 if factor_power.is_constant():
                     term_dict = term_dict ** factor_power.get_constant()
-                    pass
                 else:
                     # func^(expr, term .. )
                     pass
@@ -493,33 +487,60 @@ class Func(Nonterminal):
 
     def calculate(self):
         params = self.get_params()
+        params_list = params.get_params_list()
+        for param in params_list:
+            param.calculate()
         if self.name in BUILTIN_FUNCTIONS.keys():
-            self.term_dict = self.calculate_builtin_function(self.name, params)
+            self.term_dict = self.calculate_builtin_function(self.name, params_list)
         else:
             # User_defined_function
             pass
 
-    def calculate_builtin_function(self, func_name, params):
+    def calculate_variable(self, variable_dict):
+        """
+        :param variable_dict: { Variable:float ... }
+        :return: calculated value
+        """
+        params = self.get_params()
         params_list = params.get_params_list()
+
+        calculated_list = list()
+        for expr in params_list:
+            similar_terms_dict = expr.calculate_variable(variable_dict=variable_dict)
+            calculated_list.append(similar_terms_dict)
+        if self.name in BUILTIN_FUNCTIONS.keys():
+
+            term_dict_key = self.name
+            term_dict_key += '('
+            for calculated_dict in calculated_list:
+                term_dict_key += str(calculated_dict) + ','
+            term_dict_key = term_dict_key[:-1] + ')'
+
+            term_dict = self.calculate_builtin_function(self.name, calculated_list, term_dict_key=term_dict_key)
+            return term_dict
+        else:  # User_defined_function:
+            pass
+
+    def calculate_builtin_function(self, func_name, params_list, term_dict_key=None):
         term_dict = TermDict()
         if func_name in BUILTIN_FUNCTIONS_WITH_ONE_PARAM.keys():
             if len(params_list) != 1:
                 raise_error("{} expected one parameters, but {} is/are received".format(func_name, len(params_list)))
             radian = params_list[0]
-            radian.calculate()
             if radian.is_constant():
                 func_value = BUILTIN_FUNCTIONS_WITH_ONE_PARAM[func_name](radian.get_constant())
                 term_dict.constant = func_value
             else:
-                term_dict[str(self)] = 1
+                if term_dict_key is None:
+                    term_dict[str(self)] = 1
+                else:
+                    term_dict[term_dict_key] = 1
         elif func_name in BUILTIN_FUNCTIONS_WITH_TWO_PARAM.keys():
             if len(params_list) != 2:
                 raise_error("{} expected two parameters, but {} is/are received".format(func_name, len(params_list)))
             # log(value, base)
             base = params_list[0]
             exponent = params_list[1]
-            base.calculate()
-            exponent.calculate()
             if base.is_constant() and exponent.is_constant():
                 func_value = BUILTIN_FUNCTIONS_WITH_TWO_PARAM[func_name](base.get_constant(), exponent.get_constant())
                 term_dict.constant = func_value
@@ -539,21 +560,14 @@ class Func(Nonterminal):
     def get_params(self):
         return self.childs[0]
 
-    def func_calculate(self, func_name, params_list):
-        """
-        :param func_name:
-        :param params_list: Expr list
-        :return:
-        """
-        pass
-
     def __str__(self):
         ret_str = self.name
         param = self.get_params()
         ret_str += str(param)
         return ret_str
 
-
+    def __hash__(self):
+        return hash(str(self))
 
 class Params(Nonterminal):
     """
