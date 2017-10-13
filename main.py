@@ -1,5 +1,6 @@
 from wolframbeta.nonterminals import Expr
 from wolframbeta.tokenizer import TokenManager
+import numpy as np
 
 test_expressions = [
     "1 + 1",
@@ -67,8 +68,10 @@ for test_expression in test_expressions:
     expr = Expr(token)
     expr.parse()
     expr.calculate()
-    #print(expr.value)
     #print(expr.similar_terms_dict, end=' = ')
-    print(expr)
-    #print_tree(expr)
+    print(expr, end=' = ')
+    # for i in np.linspace(-5, 5, 100):
+    #     print("x : {}$".format(i), expr.calculate_variable({'x': i}))
+    print('$', expr.calculate_variable({'x':3}))
+
 

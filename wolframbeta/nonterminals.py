@@ -96,9 +96,18 @@ class Expr(Nonterminal):
             if term == CONST_KEY:
                 similar_new_dict = similar_new_dict + const
             else:
-                for var, power in term:
+                new_term = TermDict(term)
+                new_term.constant = const
+                for var, power in term.items():
                     if var in variable_dict.keys():
-                        pass
+                        new_term.constant *= variable_dict[var] ** power
+                        new_term.pop(var, None)
+                if new_term in similar_new_dict.keys():
+                    similar_new_dict[new_term] += new_term.constant
+                else:
+                    similar_new_dict[new_term] = new_term.constant
+
+        return similar_new_dict
 
     def get_term(self):
         return self.childs[0]
@@ -507,7 +516,6 @@ class Func(Nonterminal):
             if len(params_list) != 2:
                 raise_error("{} expected two parameters, but {} is/are received".format(func_name, len(params_list)))
             # log(value, base)
-            # pow(base, exponent)
             base = params_list[0]
             exponent = params_list[1]
             base.calculate()
@@ -544,6 +552,7 @@ class Func(Nonterminal):
         param = self.get_params()
         ret_str += str(param)
         return ret_str
+
 
 
 class Params(Nonterminal):

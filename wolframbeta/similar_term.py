@@ -131,7 +131,6 @@ class TermDict(dict):
                 pass
             else:
                 ret_str += '*'
-        debugger(ret_str)
         return ret_str
 
     def __lt__(self, other):
@@ -143,9 +142,6 @@ class TermDict(dict):
                 return len(self) < len(other)
             else:
                 return str(self) < str(other)
-
-    def has_one_term(self):
-        return True
 
     def __pow__(self, power, modulo=None):
         if isinstance(power, float):
@@ -166,7 +162,6 @@ class TermDict(dict):
                 ret_dict = TermDict()
                 ret_dict[str(base)+'^'+str(self)] = 1
             return ret_dict
-
 
 
 class SimilarTermsDict(dict):
@@ -336,13 +331,6 @@ class SimilarTermsDict(dict):
             elif key == CONST_KEY and value != 0:
                 return key, value
         return CONST_KEY, 0
-    # def __pow__(self, power, modulo=None):
-    #     if isinstance(power, float):
-    #         ret_dict = TermDict(self)
-    #         ret_dict.constant = ret_dict.constant ** power
-    #         for key in ret_dict.keys():
-    #             ret_dict[key] *= power
-    #         return ret_dict
 
     def __rpow__(self, other):
         if isinstance(other, float):
@@ -362,7 +350,7 @@ class SimilarTermsDict(dict):
         if self.is_constant():
             return str(self[CONST_KEY])
         else:
-            for i, (term, const) in enumerate(reversed(sorted(self.similar_terms_dict.items()))):
+            for i, (term, const) in enumerate(reversed(sorted(self.items()))):
                 if i == 0 and const > 0:
                     if const == 1:
                         ret_str += str(term)
