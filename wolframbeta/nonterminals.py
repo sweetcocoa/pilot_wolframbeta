@@ -376,7 +376,7 @@ class Factor(Nonterminal):
         elif isinstance(self.childs[0], Variable):
             variable = self.childs[0]
             term_dict = TermDict()
-            term_dict[variable] = 1
+            term_dict[variable] = 1.0
             if factor_tail.has_childs():
                 # variable^factor 인 경우
                 factor_power = factor_tail.get_factor()
@@ -384,13 +384,13 @@ class Factor(Nonterminal):
                 if factor_power.is_constant():
                     # variable^constant
                     term_dict[variable] = factor_power.get_constant()
-                    self.similar_terms_dict[term_dict] = 1
+                    self.similar_terms_dict[term_dict] = 1.0
                 else:
                     # variable^(some expression containing varaible)
                     raise_error("variable^variable is not supported. error - {}^{}".format(self.childs[0], str(factor_power)))
             else:
                 # varaible without factor
-                self.similar_terms_dict[term_dict] = 1
+                self.similar_terms_dict[term_dict] = 1.0
 
         elif isinstance(self.childs[0], Func):
             func = self.childs[0]

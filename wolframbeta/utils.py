@@ -62,3 +62,5 @@ def get_term_str_expression(const, variables):
         else:
             str_expression += "*" + variable + "^" + str(exponent)
     return str_expression
+
+

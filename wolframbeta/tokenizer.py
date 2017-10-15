@@ -1,5 +1,5 @@
 from wolframbeta.config import *
-
+from wolframbeta.utils import *
 
 class TokenManager:
     def __init__(self, str_expression):
@@ -52,6 +52,8 @@ class TokenManager:
         return tokens
 
     def get_next_token(self):
+        if not self.has_next_token():
+            raise_error("Invalid Expression")
         ret = self.__tokens__[0]
         self.__tokens__ = self.__tokens__[1:]
         return ret
