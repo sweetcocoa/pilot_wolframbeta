@@ -1,5 +1,11 @@
-def raise_error(*args):
+ERROR_STATE = "SUCCESS"
+
+
+def raise_error(args):
+    global ERROR_STATE
+    ERROR_STATE = args
     debugger(args)
+
 
 def calculate_ops(a, ops, b):
     """
@@ -64,3 +70,51 @@ def get_term_str_expression(const, variables):
     return str_expression
 
 
+def get_assignment_dict(assign):
+    """
+    :param assign: variable assignment statedment
+    for example, "x=3, y=2"
+    :return: dictionary object which contains "'x':3, 'y':2"
+    """
+    assign.replace(' ', '')
+
+    assigns = assign.split(',')
+    ret_dict = dict()
+    for statement in assigns:
+        state = statement.split('=')
+        ret_dict[state[0]] = float(state[1])
+
+    if len(ret_dict) == 0:
+        return None
+    else:
+        return ret_dict
+
+
+def is_assignment(statement):
+    if statement.find('=') != -1:
+        statement.replace(' ', '')
+        assigns = statement.split(',')
+        for assign in assigns:
+            if assign.find('=') == -1:
+                raise_error("assign ops(=) is not found")
+                return False
+            sides = assign.split('=')
+            if len(sides) != 2:
+                raise_error("too many assign ops(=)")
+                return False
+            try:
+                float(sides[1])
+            except ValueError:
+                raise_error("There should be float value on the right side")
+                return False
+
+            try:
+                float(sides[0])
+            except ValueError:
+                pass
+            else:
+                raise_error("There should not be float value on the left side")
+                return False
+        return True
+    else:
+        return False
