@@ -164,6 +164,8 @@ class Expr(Nonterminal):
                                 new_term_dict[new_key_pof] = 1.0
 
                             new_term_dict.pop(var, None)
+                    # elif isinstance(var, SimilarTermsDict):
+
 
                     elif var in variable_dict.keys():
                         new_term_dict.constant *= variable_dict[var] ** power

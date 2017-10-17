@@ -158,12 +158,23 @@ class TermDict(dict):
         :param variable_dict:
         :return: TermDict object that is self's calculated value
         """
-        print("safdsdaf")
         ret_dict = TermDict(self)
         for var, power in self.items():
+            if isinstance(var, SimilarTermsDict):
+                new_simdict = var.calculate_variable(variable_dict)
+
+                if new_simdict.is_constant():
+                    ret_dict.constant *= new_simdict.get_constant() ** power
+                    ret_dict.pop(var, None)
+                elif new_simdict.has_one_term():
+
+
+                ret_dict[new_simdict]
+
             if var in variable_dict.keys():
                 ret_dict.constant *= variable_dict[var] ** power
                 ret_dict.pop(var, None)
+
         return ret_dict
 
     def __truediv__(self, other):
@@ -178,7 +189,7 @@ class TermDict(dict):
                         if ret_dict[other_key] == 0:
                             ret_dict.pop(other_key, None)
                     else:
-                        ret_dict[other_key] = other[other_key]
+                        ret_dict[other_key] = -other[other_key]
             return ret_dict
 
     def __hash__(self):
@@ -205,10 +216,16 @@ class TermDict(dict):
                     power = power_raw
             else:
                 power = power_raw
-            if power != 1:
-                ret_str += str(key) + '^' + str(power)
-            else:
+            if power == 1:
                 ret_str += str(key)
+            elif power == -1:
+                if key.has_one_term():
+                    ret_str += '1' + '/'+str(key)
+                else:
+                    ret_str += '1' + '/(' + str(key) + ')'
+            else:
+                ret_str += str(key) + '^' + str(power)
+
             if i == len(self.keys()) - 1:
                 pass
             else:
@@ -346,22 +363,29 @@ class SimilarTermsDict(dict):
             return ret_dict
 
         if isinstance(other, SimilarTermsDict):
-            ret_dict = SimilarTermsDict(self)
+
             if other.is_constant():
+                ret_dict = SimilarTermsDict(self)
                 for key in ret_dict.keys():
                     ret_dict[key] /= other[CONST_KEY]
                 return ret_dict
-            elif other.has_one_term():
-                # if ret_dict.is_constant():
-
-
-
-                raise_error("Division by variable terms is not provided")
-                return ret_dict
             else:
-                raise_error("divide by multiple terms is not provided")
-                return ret_dict
 
+
+                if self.is_constant():
+                    term_dict = TermDict()
+                    term_dict.constant = self.get_constant()
+                    term_dict[other] = -1
+                    ret_dict = SimilarTermsDict()
+                    ret_dict[term_dict] = term_dict.constant
+                    return ret_dict
+                else:
+                    term_dict = TermDict()
+                    term_dict.constant = 1/other.get_constant()
+                    term_dict[other] = -1
+                    diver_dict = SimilarTermsDict()
+                    diver_dict[term_dict] = term_dict.constant
+                    return self * diver_dict
 
     def __sub__(self, other):
         return self.__add__(-other)
@@ -560,3 +584,27 @@ class SimilarTermsDict(dict):
                         else:
                             ret_str += '+' + str(const) + '*' + str(term)
         return ret_str
+
+    def __hash__(self):
+        return hash(str(self))
+
+    def __lt__(self, other):
+        return str(self) > str(other)
+        if isinstance(other, str):
+            # const key
+            return False
+        elif isinstance(other, TermDict):
+            if len(self) != len(other):
+                return len(self) > len(other)
+            else:
+                self_dim = 0
+                other_dim = 0
+                for term, const in other.items():
+                    other_dim += const
+                for term, const in self.items():
+                    self_dim += const
+
+                if self_dim == other_dim:
+                    return str(self) > str(other)
+                else:
+                    return self_dim < other_dim
