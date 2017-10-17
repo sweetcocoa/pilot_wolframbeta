@@ -28,6 +28,7 @@ BUILTIN_FUNCTIONS = {
     "cot": cot,
     "sec": sec,
     "log": math.log,
+    "pow": math.pow,
 }
 
 BUILTIN_FUNCTIONS_WITH_ONE_PARAM = {
@@ -48,6 +49,7 @@ BUILTIN_FUNCTIONS_WITH_ONE_PARAM = {
 
 BUILTIN_FUNCTIONS_WITH_TWO_PARAM = {
     "log": math.log,
+    "pow": math.pow,
 }
 
 BUILTIN_CONSTANTS = {

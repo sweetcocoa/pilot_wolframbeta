@@ -23,17 +23,13 @@ prev_expr = [""]
 prev_expr_result = ["Result"]
 
 N = 5
-domain_start = None
-domain_end = None
 
-
-def calculate_expr(str_expression):
+def calculate_expr(str_expression, domain_start=None, domain_end=None):
     expr = Expr(str_expression)
     expr.parse()
     expr.calculate()
-    global domain_start, domain_end
     if domain_start is None:
-        domain_start = -5.
+        domain_start = 0.1
     if domain_end is None:
         domain_end = 5.
     if domain_end < domain_start:
@@ -51,7 +47,7 @@ def make_data(expr):
     print(expr)
     global N
     N = N + 1
-    if len(expr)>5:
+    if len(expr) > 5:
         x, y = calculate_expr(expr)
         return dict(
             domain=x,
@@ -74,16 +70,6 @@ def calculate_handler():
     source.data = make_data(expr)
 
     # print(source.data)
-
-
-def get_domain_start(attr, old, new):
-    global domain_start
-    domain_start = new
-
-
-def get_domain_end(attr, old, new):
-    global domain_end
-    domain_end = new
 
 
 def make_plot():
@@ -110,9 +96,9 @@ def make_plot():
     plot.add_tools(ResetTool())
     plot.add_tools(SaveTool())
 
-    print("range : ", xdr.start, xdr.end)
-    xdr.on_change('start', get_domain_start)
-    xdr.on_change('end', get_domain_end)
+    # print("range : ", xdr.start, xdr.end)
+    # xdr.on_change('start', get_domain_start)
+    # xdr.on_change('end', get_domain_end)
     return plot, source
 
 

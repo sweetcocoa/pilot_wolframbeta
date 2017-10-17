@@ -1,10 +1,15 @@
-ERROR_STATE = "SUCCESS"
+# ERROR_STATE = "SUCCESS"
 
 
 def raise_error(args):
-    global ERROR_STATE
-    ERROR_STATE = args
+    # raise Exception(args)
+    # try:
+    #     global ERROR_STATE
+    #     ERROR_STATE.append(args)
+    # except NameError:
+    #     pass
     debugger(args)
+    print(args)
 
 
 def calculate_ops(a, ops, b):
@@ -118,3 +123,10 @@ def is_assignment(statement):
         return True
     else:
         return False
+
+
+def strip_float(num):
+    if isinstance(num, float) and num.is_integer():
+        return int(num)
+    else:
+        return num
