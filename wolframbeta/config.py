@@ -57,3 +57,8 @@ BUILTIN_CONSTANTS = {
     "pi": math.pi,
     "π": math.pi,
 }
+
+
+CONST_KEY = "$const"
+COEFF_KEY = "$coeff"
+SUCCESS_CODE = "SUCCESS"

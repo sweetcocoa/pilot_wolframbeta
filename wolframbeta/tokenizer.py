@@ -32,7 +32,8 @@ class TokenManager:
 
             elif ch in OPS:
                 if number_buff != "":
-                    tokens.append(float(number_buff))
+                    number = strip_float(float(number_buff))
+                    tokens.append(number)
                     number_buff = ""
                 if string_buff != "":
                     if string_buff in BUILTIN_CONSTANTS.keys():
@@ -43,7 +44,8 @@ class TokenManager:
                 tokens.append(ch)
 
         if number_buff != "":
-            tokens.append(float(number_buff))
+            number = strip_float(float(number_buff))
+            tokens.append(number)
         if string_buff != "":
             if string_buff in BUILTIN_CONSTANTS.keys():
                 tokens.append(BUILTIN_CONSTANTS[string_buff])
