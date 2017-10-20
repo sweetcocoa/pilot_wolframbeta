@@ -70,6 +70,14 @@ class Function(Variable):
         ret_str = ret_str[:-1] + ')'
         return ret_str
 
+    def is_constant(self):
+        is_const = True
+        for param in self.params:
+            if not param.dict.is_constant():
+                is_const = False
+                break
+        return is_const
+
     def __hash__(self):
         return hash(str(self))
 
@@ -194,33 +202,60 @@ class Function(Variable):
 
         """
         ret_code = SUCCESS_CODE
-        new_function = None
+        new_name = None
         new_coeff = 0
         new_power = 0
+        ret_dict = None
+
         if self.name == "sin":
-            new_function = "cos"
+            new_name = "cos"
             new_coeff = 1
             new_power = 1
         elif self.name == "cos":
-            new_function = "sin"
+            new_name = "sin"
             new_coeff = -1
             new_power = 1
         elif self.name == "tan":
-            new_function = "sec"
+            new_name = "sec"
             new_coeff = 1
             new_power = 2
         elif self.name == "cot":
-            new_function = "cosec"
+            new_name = "cosec"
             new_coeff = -1
             new_power = 2
         elif self.name == "sinh":
-            new_function = "cosh"
+            new_name = "cosh"
             new_coeff = 1
             new_power = 1
         elif self.name == "cosh":
+            new_name = "sinh"
+            new_coeff = 1
+            new_power = 1
+
+        if new_name is not None:
+            new_function = Function(new_name, self.params)
+            if len(self.params) != 1:
+                ret_code = "OneParameterError"
+                ret_dict = TermDict(0)
+            else:
+                if new_function.params[0].dict.is_constant():
+                    ret_dict = TermDict(0)
+                else:
+                    rad_diff, rad_code = new_function.params[0].dict.differentiate_variable(variable_list)
+                    if rad_code != SUCCESS_CODE:
+                        ret_code = rad_code
+                    td_function = TermDict(new_coeff)
+                    td_function[new_function] = new_power
+                    ret_dict = td_function * rad_diff
+        else:
+            """
+            
+            """
+
             pass
 
-        pass
+
+        return ret_dict, ret_code
 
 
 class ExprDict(dict):
@@ -1022,7 +1057,32 @@ class TermDict(dict):
                     if factor == COEFF_KEY:
                         continue
                     elif isinstance(factor, Function):
-                        pass
+                        if factor.has_variable(var):
+                            if isinstance(power, int) or isinstance(power, float):
+                                if power != 1:
+                                    diff_term[COEFF_KEY] *= power
+                                    diff_term[factor] = power - 1
+                                else:
+                                    diff_term.pop(factor, None)
+                            elif power.is_constant():
+                                if power.get_constant() != 1:
+                                    diff_term[COEFF_KEY] *= power.get_constant()
+                                    diff_term[factor] = power.get_constant() -1
+                                else:
+                                    diff_term.pop(factor, None)
+                            else:
+                                if power.has_variable(var):
+                                    ret_code = "Var^VarDiffError"
+                                    diff_term = TermDict(0)
+                                else:
+                                    diff_term = diff_term * power
+                                    diff_term[factor] = power - 1
+                            diff_func, func_code = factor.differentiate_varaible(variable_list)
+                            if func_code != SUCCESS_CODE:
+                                ret_code = func_code
+
+                            diff_term = diff_term * diff_func
+
                     elif isinstance(factor, Variable):
                         if factor.has_variable(var):
                             if isinstance(power, int) or isinstance(power, float):
@@ -1036,7 +1096,7 @@ class TermDict(dict):
                                     diff_term[COEFF_KEY] *= (power.get_constant())
                                     diff_term[factor] = power.get_constant() - 1
                                 else:
-                                    diff_term.pop(factor)
+                                    diff_term.pop(factor, None)
                             else:
                                 if power.has_variable(var):
                                     ret_code = "Var^VarDiffError"
