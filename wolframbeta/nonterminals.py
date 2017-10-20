@@ -85,27 +85,7 @@ class Expr(Nonterminal):
     def get_tail(self):
         return self.childs[-1]
 
-    def is_constant(self):
-        if self.dict is not None:
-            return self.dict.is_constant()
-        else:
-            return False
-
-    def get_constant(self):
-        if self.dict is not None:
-            return self.dict.get_constant()
-        else:
-            return None
-
-    def has_one_term(self):
-        if self.dict is not None:
-            return self.dict.has_one_term()
-        else:
-            return False
-
     def __str__(self):
-        if self.dict is None:
-            return "None_Expr"
         return str(self.dict)
 
 
@@ -292,6 +272,18 @@ class Factor(Nonterminal):
             else:
                 self.dict = term_var
 
+        elif isinstance(self.childs[0], Func):
+            func = self.childs[0]
+            func.calculate()
+            if factor_tail.has_childs():
+                factor_power = factor_tail.get_factor()
+                factor_power.calculate()
+                self.dict = func.dict ** factor_power.dict
+            else:
+                self.dict = func.dict
+
+
+
     def get_tail(self):
         return self.childs[-1]
 
@@ -322,4 +314,137 @@ class FactorTail(Nonterminal):
 
 
 class Func(Nonterminal):
-    pass
+    """
+    <function>
+    := 'sin' | 'cos' | 'tan' | 'cot' | 'sec' | 'cosec' | 'log' | 'exp' | 'pow' ...
+    := user_defined_function
+    """
+    def __init__(self, arg, name=None):
+        super(self.__class__, self).__init__(arg)
+        self.dict = None
+        self.name = name
+
+    def parse(self):
+        """
+        Func class does not have its name as a child.
+        Its name is stored in self.name when object is created.
+        """
+        params = Params(self.tokenmanager)
+        params.parse()
+        self.add_childs(params)
+
+    def calculate(self):
+        params = self.get_params()
+        params_list = params.get_params_list()
+        for param in params_list:
+            param.calculate()
+
+        if self.name == 'sqrt':
+            if len(params_list) != 1:
+                self.calculate_status = "OneParameterError"
+                ed_base = ExprDict(0)
+            else:
+                ed_base = params_list[0].dict
+            td_base = TermDict(1)
+            td_base[ed_base] = 0.5
+            self.dict = td_base
+        elif self.name == 'pow':
+            if len(params_list) != 2:
+                self.calculate_status = "TwoParameterError"
+                ed_base = TermDict(1)
+                ed_exponent = TermDict(1)
+            else:
+                ed_base = params_list[0].dict
+                ed_exponent = params_list[1].dict
+            td_base = TermDict(1)
+            td_base[ed_base] = ed_exponent
+            self.dict = td_base
+        else:
+            td_func = TermDict(1)
+            val_function = Function(self.name, params_list)
+            td_func[val_function] = 1
+            self.dict = td_func
+
+    def get_params(self):
+        return self.childs[0]
+
+
+class Params(Nonterminal):
+    """
+    < param > = ( < expr > < param_tail > )
+    < param_tail > =, < expr > | empty
+    """
+    def __init__(self, arg):
+        super(self.__class__, self).__init__(arg)
+        self.params_list = []
+
+    def parse(self):
+        token = self.tokenmanager.get_next_token()
+        # token == '('
+        self.add_childs(token)
+        expr = Expr(self.tokenmanager)
+        expr.parse()
+        self.add_childs(expr)
+        param_tail = ParamTail(self.tokenmanager)
+        param_tail.parse()
+        self.add_childs(param_tail)
+        token = self.tokenmanager.get_next_token()  # ')' token should exists
+        self.add_childs(token)
+
+    def get_tail(self):
+        return self.childs[2]
+
+    def get_expr(self):
+        return self.childs[1]
+
+    def get_params_list(self):
+        """
+        :return: list of expr objects which are contained in params.
+        """
+        if len(self.params_list) > 0:
+            return self.params_list
+        expr = self.get_expr()
+        self.params_list.append(expr)
+
+        param_tail = self.get_tail()
+        while param_tail.has_childs():
+            expr = param_tail.get_expr()
+            self.params_list.append(expr)
+            param_tail = param_tail.get_tail()
+
+        return self.params_list
+
+
+class ParamTail(Nonterminal):
+    """
+    < param > = ( < expr > < param_tail > )
+    < param_tail > =, < expr > <param_tail> | empty
+    """
+
+    def __init__(self, tokenmanager):
+        super(self.__class__, self).__init__(tokenmanager)
+
+    def parse(self):
+        if self.tokenmanager.has_next_token():
+            token = self.tokenmanager.show_next_token()
+            if token == ',':
+                token = self.tokenmanager.get_next_token()
+                comma = token
+                self.add_childs(comma)
+                expr = Expr(self.tokenmanager)
+                expr.parse()
+                self.add_childs(expr)
+                param_tail = ParamTail(self.tokenmanager)
+                param_tail.parse()
+                self.add_childs(param_tail)
+
+    def get_comma(self):
+        return self.childs[0]
+
+    def get_expr(self):
+        return self.childs[1]
+
+    def get_tail(self):
+        return self.childs[2]
+
+

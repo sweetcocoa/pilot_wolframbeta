@@ -2,15 +2,165 @@ from wolframbeta.utils import *
 from wolframbeta.config import *
 
 
-class Variable(str):
+class Variable:
+
+    def __init__(self, name):
+        self.name = str(name)
+
+    def __str__(self):
+        return self.name
+
+    def __hash__(self):
+        return hash(self.name)
+
+    def __lt__(self, other):
+        return self.name < other
+
+    def __eq__(self, other):
+        return self.name == other
+
+    def __gt__(self, other):
+        return self.name > other
+
+    def is_constant(self):
+        return False
 
     def has_one_term(self):
         return True
+
     def calculate_variable(self, variable_dict):
         if self in variable_dict.keys():
             return variable_dict[self], SUCCESS_CODE
         else:
             return self, SUCCESS_CODE
+
+
+class Function(Variable):
+    def __init__(self, name, params=None):
+        """
+        :param name: function name sin, cos, ...
+        :param params: params list which contains dict
+        """
+        super(Function, self).__init__(name)
+        if params is None or len(params) == 0:
+            raise ValueError("Function received no params")
+        self.params = params
+
+    def __str__(self):
+        ret_str = self.name + '('
+        for param in self.params:
+            ret_str += str(param) + ','
+        ret_str = ret_str[:-1] + ')'
+        return ret_str
+
+    def __hash__(self):
+        return hash(str(self))
+
+    def __lt__(self, other):
+        return str(self) < other
+
+    def __eq__(self, other):
+        return str(self) == other
+
+    def __gt__(self, other):
+        return str(self) > other
+
+    def calculate_variable(self, variable_dict):
+        new_params = []
+        ret_dict = None
+        ret_code = SUCCESS_CODE
+
+        for param in self.params:
+            new_param, param_code = param.dict.calculate_variable(variable_dict)
+            new_params.append(new_param)
+            if param_code != SUCCESS_CODE:
+                ret_code = param_code
+
+        if self.name in BUILTIN_FUNCTIONS:
+            if self.name in BUILTIN_FUNCTIONS_WITH_ONE_PARAM.keys():
+                if len(new_params) != 1:
+                    ret_code = "OneParameterError"
+                    if len(new_params) < 1:
+                        radian = TermDict(0)
+                    else:
+                        radian = new_params[0]
+                else:
+                    radian = new_params[0]
+
+                if radian.is_constant():
+                    radian = radian.get_constant()
+                    func_value = BUILTIN_FUNCTIONS_WITH_ONE_PARAM[self.name](radian)
+                    td_const = TermDict(func_value)
+                    ret_dict = td_const
+                else:
+                    new_params = [radian]
+                    new_function = Function(self.name, new_params)
+                    td_func = TermDict(1)
+                    td_func[new_function] = 1
+                    ret_dict = td_func
+
+            elif self.name in BUILTIN_FUNCTIONS_WITH_TWO_PARAM:
+                if len(new_params) != 2:
+                    ret_code = "TwoParameterError"
+                    if len(new_params) == 0:
+                        exponent = TermDict(1)
+                        base = TermDict(2)
+                    elif len(new_params) == 1:
+                        exponent = new_params[0]
+                        base = TermDict(10)
+                    else:
+                        exponent = new_params[0]
+                        base = new_params[1]
+                else:
+                    exponent = new_params[0]
+                    base = new_params[1]
+
+                if exponent.is_constant() and base.is_constant():
+                    exponent = exponent.get_constant()
+                    base = base.get_constant()
+                    if base <= 0 or base == 1:
+                        ret_code = "LogBaseError"
+                        base = 2
+                    if exponent <= 0:
+                        ret_code = "LogExponentError"
+                        exponent = 1
+
+                    func_value = BUILTIN_FUNCTIONS_WITH_TWO_PARAM[self.name](exponent, base)
+                    td_const = TermDict(func_value)
+                    ret_dict = td_const
+                elif base.is_constant():
+                    base = base.get_constant()
+                    if base <= 0 or base == 1:
+                        ret_code = "LogBaseError"
+                        base = 2
+                    td_const = TermDict(base)
+                    new_params = [exponent, td_const]
+                    new_function = Function(self.name, new_params)
+                    td_func = TermDict(1)
+                    td_func[new_function] = 1
+                    ret_dict = td_func
+                elif exponent.is_constant():
+                    exponent = exponent.get_constant()
+                    if exponent <= 0:
+                        ret_code = "LogExponentError"
+                        exponent = 1
+                    td_const = TermDict(exponent)
+                    new_params = [td_const, base]
+                    new_function = Function(self.name, new_params)
+                    td_func = TermDict(1)
+                    td_func[new_function] = 1
+                    ret_dict = td_func
+                else:
+                    new_params = [exponent, base]
+                    new_function = Function(self.name, new_params)
+                    td_func = TermDict(1)
+                    td_func[new_function] = 1
+                    ret_dict = td_func
+        else:
+            ret_code = "UndefinedFunctionError"
+            ret_dict = TermDict(1)
+
+        return ret_dict, ret_code
 
 
 class ExprDict(dict):
@@ -155,13 +305,7 @@ class ExprDict(dict):
                         ret_dict[CONST_KEY] += ret_term.get_constant()
                     else:
                         ret_dict[ret_term] = ret_term.get_constant()
-        # elif isinstance(other, ExprDict):
-        #     td_other = TermDict(1)
-        #     td_other[other] = -1
-        #     td_self = TermDict(1)
-        #     td_self[self] = 1
-        #     ret_dict = td_other * td_self
-        #
+
         elif isinstance(other, ExprDict):
             ret_dict = ExprDict(0)
             for a_term, a_coeff in self.items():
