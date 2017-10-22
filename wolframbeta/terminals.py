@@ -56,7 +56,7 @@ class Function(Variable):
     def __init__(self, name, params=None):
         """
         :param name: function name sin, cos, ...
-        :param params: params list which contains expr
+        :param params: params list which contains dict
         """
         super(Function, self).__init__(name)
         if params is None or len(params) == 0:
@@ -73,7 +73,7 @@ class Function(Variable):
     def is_constant(self):
         is_const = True
         for param in self.params:
-            if not param.dict.is_constant():
+            if not param.is_constant():
                 is_const = False
                 break
         return is_const
@@ -96,7 +96,7 @@ class Function(Variable):
         ret_code = SUCCESS_CODE
 
         for param in self.params:
-            new_param, param_code = param.dict.calculate_variable(variable_dict)
+            new_param, param_code = param.calculate_variable(variable_dict)
             new_params.append(new_param)
             if param_code != SUCCESS_CODE:
                 ret_code = param_code
@@ -190,7 +190,7 @@ class Function(Variable):
     def has_variable(self, variable):
         has = False
         for param in self.params:
-            has = param.dict.has_variable(variable)
+            has = param.has_variable(variable)
             if has:
                 break
         return has
@@ -238,10 +238,10 @@ class Function(Variable):
                 ret_code = "OneParameterError"
                 ret_dict = TermDict(0)
             else:
-                if new_function.params[0].dict.is_constant():
+                if new_function.params[0].is_constant():
                     ret_dict = TermDict(0)
                 else:
-                    rad_diff, rad_code = new_function.params[0].dict.differentiate_variable(variable_list)
+                    rad_diff, rad_code = new_function.params[0].differentiate_variable(variable_list)
                     if rad_code != SUCCESS_CODE:
                         ret_code = rad_code
                     td_function = TermDict(new_coeff)
@@ -1037,7 +1037,10 @@ class TermDict(dict):
                         ret_str += str_factor + '^' + str(power)
                 else:
                     if power.has_one_term():
-                        ret_str += str_factor + '^' + str(power)
+                        if isinstance(power, TermDict) and len(power) != 2:
+                            ret_str += str_factor + '^(' + str(power) + ')'
+                        else:
+                            ret_str += str_factor + '^' + str(power)
                     else:
                         ret_str += str_factor + '^(' + str(power) + ')'
             if ret_str[0] == '*':
@@ -1107,6 +1110,23 @@ class TermDict(dict):
                         else:
                             continue
                     elif isinstance(factor, ConstDict):
+                        if power.is_constant():
+                            continue
+                        else:
+                            if power.has_variable(var):
+                                diff_power, diff_code = power.differentiate_variable(variable_list)
+                                if diff_code != SUCCESS_CODE:
+                                    ret_code = diff_code
+                                diff_term = diff_term * diff_power
+                                try:
+                                    new_log_term = math.log(factor.get_coefficient(), math.e)
+                                except ValueError:
+                                    ret_code = "LogExponentError"
+                                    new_log_term = 1
+                                diff_term = diff_term * new_log_term
+                            else:
+                                continue
+                                pass
                         pass
                     elif isinstance(factor, ExprDict):
                         if factor.has_variable(var):
@@ -1180,6 +1200,7 @@ class ConstDict(TermDict):
 
     def has_variable(self, variable):
         return False
+
 
 
 # x = Variable('x')

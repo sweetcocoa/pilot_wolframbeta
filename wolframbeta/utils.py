@@ -1,3 +1,5 @@
+from wolframbeta.config import *
+
 # ERROR_STATE = "SUCCESS"
 
 
@@ -57,24 +59,6 @@ def is_string_power(tok):
         return False
 
 
-def get_term_str_expression(const, variables):
-    """
-    :param const: constant float in front of similar term
-    :param variables: variables which compose the similar term
-    :return: string expression, which could be used for initialization of Tokenmanager.
-    """
-    str_expression = str(const)
-    for variable in variables.keys():
-        exponent = variables[variable]
-        if exponent == 1:
-            str_expression += "*" + variable
-        elif exponent == -1:
-            str_expression += '/' + variable
-        else:
-            str_expression += "*" + variable + "^" + str(exponent)
-    return str_expression
-
-
 def get_assignment_dict(assign):
     """
     :param assign: variable assignment statedment
@@ -87,7 +71,10 @@ def get_assignment_dict(assign):
     ret_dict = dict()
     for statement in assigns:
         state = statement.split('=')
-        ret_dict[state[0]] = float(state[1])
+        if state[1] in BUILTIN_CONSTANTS.keys():
+            ret_dict[state[0]] = BUILTIN_CONSTANTS[state[1]]
+        else:
+            ret_dict[state[0]] = float(state[1])
 
     if len(ret_dict) == 0:
         return None
@@ -96,33 +83,52 @@ def get_assignment_dict(assign):
 
 
 def is_assignment(statement):
+    ret_code = SUCCESS_CODE
     if statement.find('=') != -1:
         statement.replace(' ', '')
         assigns = statement.split(',')
         for assign in assigns:
             if assign.find('=') == -1:
-                raise_error("assign ops(=) is not found")
-                return False
+                # raise_error("assign ops(=) is not found")
+                ret_code = "assign ops(=) is not found"
             sides = assign.split('=')
             if len(sides) != 2:
-                raise_error("too many assign ops(=)")
-                return False
-            try:
-                float(sides[1])
-            except ValueError:
-                raise_error("There should be float value on the right side")
-                return False
+                # raise_error("too many assign ops(=)")
+                ret_code = "too many assign ops(=)"
+            if sides[1] in BUILTIN_CONSTANTS.keys():
+                pass
+            else:
+                try:
+                    float(sides[1])
+                except ValueError:
+                    # raise_error("There should be float value on the right side")
+                    ret_code = "There should be float value on the right side"
 
             try:
                 float(sides[0])
             except ValueError:
                 pass
             else:
-                raise_error("There should not be float value on the left side")
-                return False
-        return True
+                # raise_error("There should not be float value on the left side")
+                ret_code = "There should not be float value on the left side"
     else:
-        return False
+        ret_code = "There is no assignment"
+
+    return ret_code
+
+
+def get_var_range_assignment(statement):
+    ret_dict = None
+    var = None
+    if statement.find('(') != -1:
+        var = statement[:statement.find('(')]
+        if statement.find(')') != -1:
+            assignment_statement = statement[statement.find('(') + 1: statement.find(')')]
+            if is_assignment(assignment_statement) == SUCCESS_CODE:
+                assignment_dict = get_assignment_dict(assignment_statement)
+                if "start" in assignment_dict.keys() and "end" in assignment_dict.keys():
+                    ret_dict = assignment_dict
+    return var, ret_dict
 
 
 def strip_float(num):

@@ -336,15 +336,17 @@ class Func(Nonterminal):
     def calculate(self):
         params = self.get_params()
         params_list = params.get_params_list()
+        dict_list = list()
         for param in params_list:
             param.calculate()
+            dict_list.append(param.dict)
 
         if self.name == 'sqrt':
             if len(params_list) != 1:
                 self.calculate_status = "OneParameterError"
                 ed_base = ExprDict(0)
             else:
-                ed_base = params_list[0].dict
+                ed_base = dict_list[0]
             td_base = TermDict(1)
             td_base[ed_base] = 0.5
             self.dict = td_base
@@ -354,14 +356,14 @@ class Func(Nonterminal):
                 ed_base = TermDict(1)
                 ed_exponent = TermDict(1)
             else:
-                ed_base = params_list[0].dict
-                ed_exponent = params_list[1].dict
+                ed_base = dict_list[0]
+                ed_exponent = dict_list[1]
             td_base = TermDict(1)
             td_base[ed_base] = ed_exponent
             self.dict = td_base
         else:
             td_func = TermDict(1)
-            val_function = Function(self.name, params_list)
+            val_function = Function(self.name, dict_list)
             td_func[val_function] = 1
             self.dict = td_func
 
