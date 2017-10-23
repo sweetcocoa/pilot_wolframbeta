@@ -56,6 +56,7 @@ class TokenManager:
     def get_next_token(self):
         if not self.has_next_token():
             raise_error("Invalid Expression")
+            return 0
         ret = self.__tokens__[0]
         self.__tokens__ = self.__tokens__[1:]
         return ret

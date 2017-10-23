@@ -347,8 +347,7 @@ class Func(Nonterminal):
                 ed_base = ExprDict(0)
             else:
                 ed_base = dict_list[0]
-            td_base = TermDict(1)
-            td_base[ed_base] = 0.5
+            td_base = ed_base ** 0.5
             self.dict = td_base
         elif self.name == 'pow':
             if len(params_list) != 2:
@@ -358,13 +357,17 @@ class Func(Nonterminal):
             else:
                 ed_base = dict_list[0]
                 ed_exponent = dict_list[1]
-            td_base = TermDict(1)
-            td_base[ed_base] = ed_exponent
+            td_base = ed_base ** ed_exponent
+
             self.dict = td_base
         else:
             td_func = TermDict(1)
             val_function = Function(self.name, dict_list)
-            td_func[val_function] = 1
+            if val_function.is_constant():
+                val_function, self.calculate_status = val_function.calculate_variable({})
+                td_func = TermDict(1) * val_function
+            else:
+                td_func[val_function] = 1
             self.dict = td_func
 
     def get_params(self):
