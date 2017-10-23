@@ -2,6 +2,7 @@ from wolframbeta.utils import *
 from wolframbeta.config import *
 import warnings
 
+
 class Variable:
 
     def __init__(self, name):

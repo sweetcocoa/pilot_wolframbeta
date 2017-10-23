@@ -8,7 +8,7 @@ def get_assignment_dict(assign):
     for example, "x=3, y=2"
     :return: dictionary object which contains "'x':3, 'y':2"
     """
-    assign.replace(' ', '')
+    assign = assign.replace(' ', '')
 
     assigns = assign.split(',')
     ret_dict = dict()
