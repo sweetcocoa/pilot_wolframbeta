@@ -60,3 +60,4 @@ BUILTIN_CONSTANTS = {
 CONST_KEY = "$const"
 COEFF_KEY = "$coeff"
 SUCCESS_CODE = "SUCCESS"
+UNDEF_CODE = "정의되지 않습니다. (불연속, 미분불가능) "

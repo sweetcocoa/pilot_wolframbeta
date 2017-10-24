@@ -364,8 +364,11 @@ class Func(Nonterminal):
             td_func = TermDict(1)
             val_function = Function(self.name, dict_list)
             if val_function.is_constant():
-                val_function, self.calculate_status = val_function.calculate_variable({})
-                td_func = TermDict(1) * val_function
+                val_func, val_code = val_function.calculate_variable({})
+                if val_code == SUCCESS_CODE:
+                    td_func = TermDict(1) * val_func
+                else:
+                    td_func[val_function] = 1
             else:
                 td_func[val_function] = 1
             self.dict = td_func

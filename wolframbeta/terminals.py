@@ -91,6 +91,10 @@ class Function(Variable):
     def __gt__(self, other):
         return str(self) > other
 
+    def calculate_when_constant(self):
+        ret_dict, ret_code = self.calculate_variable({})
+        return ret_dict, ret_code
+
     def calculate_variable(self, variable_dict):
         new_params = []
         ret_dict = None
@@ -117,11 +121,11 @@ class Function(Variable):
                     radian = radian.get_constant()
                     try:
                         func_value = BUILTIN_FUNCTIONS_WITH_ONE_PARAM[self.name](radian)
-                    except ValueError:
-                        ret_code = "ValueError"
+                    except ValueError as e:
+                        ret_code = UNDEF_CODE + e
                         func_value = 0
-                    except ZeroDivisionError:
-                        ret_code = "ZeroDivisionError"
+                    except ZeroDivisionError as e:
+                        ret_code = UNDEF_CODE + e
                         func_value = 0
                     td_const = TermDict(func_value)
                     ret_dict = td_const
@@ -152,19 +156,20 @@ class Function(Variable):
                     exponent = exponent.get_constant()
                     base = base.get_constant()
                     if base <= 0 or base == 1:
-                        ret_code = "LogBaseError"
+                        ret_code = UNDEF_CODE + "LogBaseError"
                         base = 2
                     if exponent <= 0:
-                        ret_code = "LogExponentError"
+                        ret_code = UNDEF_CODE + "LogExponentError"
                         exponent = 1
 
                     func_value = BUILTIN_FUNCTIONS_WITH_TWO_PARAM[self.name](exponent, base)
+
                     td_const = TermDict(func_value)
                     ret_dict = td_const
                 elif base.is_constant():
                     base = base.get_constant()
                     if base <= 0 or base == 1:
-                        ret_code = "LogBaseError"
+                        ret_code = UNDEF_CODE + "LogBaseError"
                         base = 2
                     td_const = TermDict(base)
                     new_params = [exponent, td_const]
@@ -175,7 +180,7 @@ class Function(Variable):
                 elif exponent.is_constant():
                     exponent = exponent.get_constant()
                     if exponent <= 0:
-                        ret_code = "LogExponentError"
+                        ret_code = UNDEF_CODE + "LogExponentError"
                         exponent = 1
                     td_const = TermDict(exponent)
                     new_params = [td_const, base]
@@ -262,12 +267,14 @@ class Function(Variable):
                         new_term = log_diff ** -1
                         try:
                             new_log_constant = 1/math.log(self.params[1].get_constant())
-                        except ValueError:
+                        except ValueError as e:
                             new_log_constant = 1
-                            ret_code = "LogValueError"
-                        except ZeroDivisionError:
+                            ret_code = UNDEF_CODE + e
+                            diff_term = TermDict(0)
+
+                        except ZeroDivisionError as e:
                             new_log_constant = 1
-                            ret_code = "LogValueError"
+                            ret_code = UNDEF_CODE + e
 
                         new_term = new_term * new_log_constant
                         ret_dict = new_term * denominator_diff
@@ -513,8 +520,9 @@ class ExprDict(dict):
     def __rpow__(self, other):
         ret_dict = None
         if isinstance(other, float) or isinstance(other, int):
-            ret_td = ConstDict(other)
-            ret_dict = ret_td ** self
+            if other > 0:
+                ret_td = ConstDict(other)
+                ret_dict = ret_td ** self
         else:
             raise_error("Unexpected calculation :: Expr.__rpow__")
             ret_dict = ExprDict(1)
@@ -851,7 +859,7 @@ class TermDict(dict):
                 ret_dict = TermDict(self)
                 for factor, po in self.items():
                     if factor == COEFF_KEY:
-                        if self.get_coefficient() != 1:
+                        if self.get_coefficient() != 1 and self.get_coefficient() > 0:
                             if power.get_coefficient() == 1:
                                 coff_td = ConstDict(self.get_coefficient())
                                 ret_dict[coff_td] = power
@@ -1003,12 +1011,12 @@ class TermDict(dict):
                         warnings.filterwarnings('error')
                         try:
                             ret_dict[COEFF_KEY] *= factor_calculated ** power_calculated
-                        except ZeroDivisionError:
+                        except ZeroDivisionError as e:
                             ret_dict[COEFF_KEY] = 1
-                            ret_code = "ZeroDivisionError"
+                            ret_code = UNDEF_CODE + str(e)
                         except Warning as e:
                             ret_dict[COEFF_KEY] = 1
-                            ret_code = str(e)
+                            ret_code = UNDEF_CODE + str(e)
 
                 elif isinstance(factor_calculated, Variable):
                     new_factor = TermDict(1)
@@ -1017,11 +1025,16 @@ class TermDict(dict):
 
                 else:
                     if factor_calculated.is_constant():
-                        try:
-                            ret_dict[COEFF_KEY] *= factor_calculated.get_constant() ** power_calculated
-                        except ZeroDivisionError:
-                            ret_dict[COEFF_KEY] = 1
-                            ret_code = "ZeroDivisionError"
+                        with warnings.catch_warnings():
+                            warnings.filterwarnings('error')
+                            try:
+                                ret_dict[COEFF_KEY] *= factor_calculated.get_constant() ** power_calculated
+                            except ZeroDivisionError as e:
+                                ret_dict[COEFF_KEY] = 1
+                                ret_code = UNDEF_CODE + str(e)
+                            except Warning as e:
+                                ret_dict[COEFF_KEY] = 1
+                                ret_code = UNDEF_CODE + str(e)
                     else:
                         ret_dict = ret_dict * (factor_calculated ** power_calculated)
 
@@ -1082,7 +1095,7 @@ class TermDict(dict):
             else:
                 str_factor = '(' + str(factor) + ')'
 
-            if i - write_coeff > 0 and i - write_coeff < len(self.keys()):
+            if 0 < i - write_coeff < len(self.keys()):
                 ret_str += "*"
             if factor == COEFF_KEY:
                 ret_str += str(power)
@@ -1135,12 +1148,9 @@ class TermDict(dict):
                                 else:
                                     diff_term.pop(factor, None)
                             else:
-                                if power.has_variable(var):
-                                    ret_code = "Var^VarDiffError"
-                                    diff_term = TermDict(0)
-                                else:
-                                    ret_code = "Var^VarDiffError"
-                                    diff_term = TermDict(0)
+                                ret_code = "정의되지 않습니다.(변수의 변수거듭제곱)"
+                                diff_term = TermDict(0)
+
                             diff_func, func_code = factor.differentiate_varaible(variable_list)
                             if func_code != SUCCESS_CODE:
                                 ret_code = func_code
@@ -1164,12 +1174,8 @@ class TermDict(dict):
                                 else:
                                     diff_term.pop(factor, None)
                             else:
-                                if power.has_variable(var):
-                                    ret_code = "Var^VarDiffError"
-                                    diff_term = TermDict(0)
-                                else:
-                                    ret_code = "Var^VarDiffError"
-                                    diff_term = TermDict(0)
+                                ret_code = "정의되지 않습니다.(변수의 변수거듭제곱)"
+                                diff_term = TermDict(0)
 
                         else:
                             continue
@@ -1184,8 +1190,8 @@ class TermDict(dict):
                                 diff_term = diff_term * diff_power
                                 try:
                                     new_log_term = math.log(factor.get_coefficient(), math.e)
-                                except ValueError:
-                                    ret_code = "LogExponentError"
+                                except ValueError as e:
+                                    ret_code = UNDEF_CODE + str(e)
                                     new_log_term = 1
                                 diff_term = diff_term * new_log_term
                             else:
@@ -1210,12 +1216,8 @@ class TermDict(dict):
                                 else:
                                     diff_term.pop(factor, None)
                             else:
-                                if power.has_variable(var):
-                                    ret_code = "Var^VarDiffError"
-                                    diff_term = TermDict(0)
-                                else:
-                                    ret_code = "Var^VarDiffError"
-                                    diff_term = TermDict(0)
+                                ret_code = "정의되지 않습니다.(변수의 변수거듭제곱)"
+                                diff_term = TermDict(0)
 
                             diff_term = diff_term * diffed_factor
                         else:

@@ -176,6 +176,9 @@ test_expressions = [
     "sin(pi/3)^3/2 + 1",
     "sin(3,2)",
     "log(1)",
+    "y^x",
+    "x^y",
+    "x*y",
 ]
 
 for test_expression in test_expressions:

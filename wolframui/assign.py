@@ -22,15 +22,16 @@ def get_assignment_dict(assign):
                 ret_dict[state[0]] = expr.dict.get_constant()
 
     if len(ret_dict) == 0:
-        return dict({})
-    else:
-        return ret_dict
+        ret_dict = {'x': 3, 'y': 2}
+        assign = "x=3, y=2"
+
+    return ret_dict, assign
 
 
 def get_var_range_assignment(statement):
     """
-    :param statement: x(0.1, 2*pi)
-    :return: x, dict({'start':0.1, 'end':6.28})
+    :param statement: x(0.1, 2*pi) or x
+    :return: x, dict({'start':0.1, 'end':5})
     """
     statement = statement.replace(' ', '')
     ret_dict = None
@@ -52,4 +53,14 @@ def get_var_range_assignment(statement):
                     if start_expr.dict.is_constant() and end_expr.dict.is_constant():
                         ret_dict = dict({'start': start_expr.dict.get_constant(),
                                         'end': end_expr.dict.get_constant()})
+
+
+    elif len(statement) > 0:
+        var = statement
+    else:
+        var = 'x'
+
+    if ret_dict is None:
+        ret_dict = {'start': 0.1, 'end': 5}
+
     return var, ret_dict
