@@ -77,9 +77,9 @@ def calculate_expr(expr_dict, var='x', domain_start=0.1, domain_end=5):
     if len(domain) > 0:
         two_domain.append(domain)
         two_y.append(y)
-    elif len(domain) == 0:
-        two_domain = list()
-        two_y = list()
+    # elif len(domain) == 0:
+    #     two_domain = list()
+    #     two_y = list()
 
     return two_domain, two_y, ret_code
 
@@ -216,10 +216,10 @@ def make_layout():
     textinput_expr = TextInput(title="Expression", value="", placeholder="sin(x)^2 + x^2 * y", sizing_mode='scale_width')
 
     str_assign_value = ""
-    textinput_assign_value = TextInput(title="assign_value", value=str_assign_value, placeholder="x=3, y=5")
+    textinput_assign_value = TextInput(title="assign_value", value=str_assign_value, placeholder="x=3, y=2")
 
     str_assign_range = ""
-    textinput_assign_range = TextInput(title="assign_range", value=str_assign_range, placeholder="x(0.1, 5*pi)")
+    textinput_assign_range = TextInput(title="assign_range", value=str_assign_range, placeholder="x(0.1, 5)")
 
     textinput_result_func = TextInput(title="Calculated Function", value="", disabled=True, width=FIG_WIDTH*2)
     textinput_result_diff = TextInput(title="Differentiated Function", value="", disabled=True, width=FIG_WIDTH*2)
