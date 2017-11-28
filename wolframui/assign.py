@@ -28,17 +28,15 @@ def get_assignment_dict(assign):
     return ret_dict, assign
 
 
-def get_var_range_assignment(statement):
+def get_range_assignment(statement):
     """
-    :param statement: x(0.1, 2*pi) or x
-    :return: x, dict({'start':0.1, 'end':5})
+    :param statement: (0.1, 2*pi)
+    :return: dict({'start':0.1, 'end':6.28})
+    if invalid statement is fed, then None would be returned.
     """
     statement = statement.replace(' ', '')
     ret_dict = None
-    var = None
-
     if statement.find('(') != -1:
-        var = statement[:statement.find('(')]
         if statement.find(')') != -1:
             assignment_statement = statement[statement.find('(') + 1: statement.find(')')]
             if assignment_statement.find(',') != -1:
@@ -53,7 +51,37 @@ def get_var_range_assignment(statement):
                     if start_expr.dict.is_constant() and end_expr.dict.is_constant():
                         ret_dict = dict({'start': start_expr.dict.get_constant(),
                                         'end': end_expr.dict.get_constant()})
+                    if assignments[0] == 'auto' or assignments[1] == 'auto':
+                        ret_dict = dict()
+                        if assignments[0] == 'auto':
+                            ret_dict['start'] = 'auto'
+                        elif start_expr.dict.is_constant():
+                            ret_dict['start'] = start_expr.dict.get_constant()
 
+                        if assignments[1] == 'auto':
+                            ret_dict['end'] = 'auto'
+                        elif end_expr.dict.is_constant():
+                            ret_dict['end'] = end_expr.dict.get_constant()
+
+                        if len(ret_dict) != 2:
+                            ret_dict = None
+
+    # print("assign", ret_dict)
+    return ret_dict
+
+
+def get_var_range_assignment(statement):
+    """
+    :param statement: x(0.1, 2*pi) or x
+    :return: x, dict({'start':0.1, 'end':5})
+    """
+    statement = statement.replace(' ', '')
+    ret_dict = None
+    var = None
+
+    if statement.find('(') != -1:
+        var = statement[:statement.find('(')]
+        ret_dict = get_range_assignment(statement[statement.find('('):])
 
     elif len(statement) > 0:
         var = statement

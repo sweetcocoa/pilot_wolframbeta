@@ -21,40 +21,61 @@ from wolframui.uiconfig import *
 from wolframui.assign import *
 
 
-def calculate_expr(expr_dict, var='x', domain_start=0.1, domain_end=5):
+def calculate_expr(expr_dict, **kwargs):
     """
     :param expr_dict: dict object which is calculated by expr
     :param var: str variable.
-    :param domain_start:
-    :param domain_end:
-    :return: range, y values, return code
+    :param domain_range:
+    :param output_range:
+    :return: domain x values, corresponding y values, return code
     """
+
+    var = kwargs['var']
+    domain_start = kwargs['domain_range']['start']
+    domain_end = kwargs['domain_range']['end']
+
+    output_start = kwargs['output_range']['start']
+    output_end = kwargs['output_range']['end']
+
     if domain_end < domain_start:
         domain_start, domain_end = domain_end, domain_start
 
+    if output_start != 'auto' and output_end != 'auto':
+        if output_end < output_start:
+            output_start, output_end = output_end, output_start
+
     definition = np.linspace(domain_start, domain_end, 1001)
 
-    two_domain = list()
-    two_y = list()
+    domains = list()
+    ys = list()
 
     domain = list()
     y = list()
-
-    undef_domain = list()
-    undef_y = list()
 
     ret_code = SUCCESS_CODE
 
     for x in definition:
         y_val, y_code = expr_dict.calculate_variable({var: x})
         if y_code == SUCCESS_CODE and y_val.is_constant():
-
             y_val = y_val.get_constant()
-            y.append(y_val)
-            domain.append(x)
-            if len(undef_domain) > 0:
-                undef_domain = list()
-                undef_y = list()
+            append = False
+            if output_start == 'auto' and output_end == 'auto':
+                append = True
+            elif output_start == 'auto' and output_end != 'auto' and y_val <= output_end:
+                append = True
+            elif output_start != 'auto' and y_val >= output_start and output_end == 'auto':
+                append = True
+            elif output_start != 'auto' and output_end != 'auto' and output_start < y_val < output_end:
+                append = True
+
+            if append:
+                y.append(y_val)
+                domain.append(x)
+            elif len(domain) > 0:
+                domains.append(domain)
+                domain = list()
+                ys.append(y)
+                y = list()
 
         else:
             if y_code != SUCCESS_CODE:
@@ -63,37 +84,28 @@ def calculate_expr(expr_dict, var='x', domain_start=0.1, domain_end=5):
             if not y_val.is_constant():
                 ret_code = "Not Constant Result"
 
-            undef_domain.append(x)
-            undef_y.append(y_val.get_constant())
-
             if len(domain) > 0:
-                two_domain.append(domain)
+                domains.append(domain)
                 domain = list()
-                two_y.append(y)
+                ys.append(y)
                 y = list()
 
-    if len(undef_domain) > 0:
-        pass
     if len(domain) > 0:
-        two_domain.append(domain)
-        two_y.append(y)
-    # elif len(domain) == 0:
-    #     two_domain = list()
-    #     two_y = list()
+        domains.append(domain)
+        ys.append(y)
 
-    return two_domain, two_y, ret_code
+    return domains, ys, ret_code
 
 
-def make_data_func(expr_dict=None, var=None, range_dict=None):
+def make_data_func(expr_dict=None, var='x', domain_range=None, output_range=None):
     if expr_dict is None:
         expr_dict = ExprDict(0)
+    if domain_range is None:
+        domain_range = {'start': 0.1, 'end': 5}
+    if output_range is None:
+        output_range = {'start': 'auto', 'end': 'auto'}
 
-    if var is None:
-        var = 'x'
-    if range_dict is None:
-        range_dict = dict({'start':0.1, 'end':5})
-
-    x, y, ret_code = calculate_expr(expr_dict, var, range_dict['start'], range_dict['end'])
+    x, y, ret_code = calculate_expr(expr_dict, var=var, domain_range=domain_range, output_range=output_range)
 
     ret_dict = dict(
         domain=x,
@@ -102,7 +114,7 @@ def make_data_func(expr_dict=None, var=None, range_dict=None):
     return ret_dict, ret_code
 
 
-def calculate_handler(plot_list, source_list, result_list, expr, assign_value, var_range):
+def calculate_handler(**kwargs):
     """
     :param plot_list: list(plot)
     :param source_list: list(plot source)
@@ -110,23 +122,38 @@ def calculate_handler(plot_list, source_list, result_list, expr, assign_value, v
     :param expr: str(expr text's value)
     :param assign_value: str(assign text's value)
     :param var_range: str(variable range)
+    :param function_range:
+    :param derivative_range:
     :return:
     """
+
+    plot_list = kwargs['plot_list']
+    source_list = kwargs['source_list']
+    result_list = kwargs['result_list']
+    expr = kwargs['expr']
+    assign_value = kwargs['assign_value']
+    var_range = kwargs['var_range']
+    function_range = kwargs['function_range']
+    derivative_range = kwargs['derivative_range']
+
     expr = expr.value
     assign_value = assign_value.value
     var_range = var_range.value
+    function_range = function_range.value
+    derivative_range = derivative_range.value
 
     assign_dict, assign_value = get_assignment_dict(assign_value)
-
-    var, range_dict = get_var_range_assignment(var_range)
+    var, domain_range = get_var_range_assignment(var_range)
+    function_range = get_range_assignment(function_range)
+    derivative_range = get_range_assignment(derivative_range)
 
     expr = Expr(expr)
     expr.parse()
     expr.calculate()
-    source_list[0].data, ret_func = make_data_func(expr.dict, var, range_dict)
+    source_list[0].data, ret_func = make_data_func(expr_dict=expr.dict, var=var, domain_range=domain_range, output_range=function_range)
 
     diff_dict, diff_code = expr.dict.differentiate_variable([var])
-    source_list[1].data, ret_diff = make_data_func(diff_dict, var, range_dict)
+    source_list[1].data, ret_diff = make_data_func(expr_dict=diff_dict, var=var, domain_range=domain_range, output_range=derivative_range)
 
     # Setting Plot's title
     if len(assign_dict) > 0:
@@ -147,12 +174,12 @@ def calculate_handler(plot_list, source_list, result_list, expr, assign_value, v
 
     # Setting Plot's label
     if ret_func != SUCCESS_CODE:
-        result_list[0].value = str(expr.dict)  # + "(" + ret_func + ")"
+        result_list[0].value = str(expr.dict)
     else:
         result_list[0].value = str(expr.dict)
 
     if ret_diff != SUCCESS_CODE:
-        result_list[1].value = str(diff_dict)  # + "(" + ret_diff + ")"
+        result_list[1].value = str(diff_dict)
     else:
         result_list[1].value = str(diff_dict)
 
@@ -182,10 +209,10 @@ def make_plot(source, color):
     plot.add_layout(Grid(dimension=0, ticker=xaxis.ticker))
     plot.add_layout(Grid(dimension=1, ticker=yaxis.ticker))
 
-    plot.add_tools(WheelZoomTool())
+    # plot.add_tools(WheelZoomTool())
     plot.add_tools(ResetTool())
     plot.add_tools(SaveTool())
-    plot.add_tools(BoxZoomTool())
+    # plot.add_tools(BoxZoomTool())
 
     return plot, source
 
@@ -202,51 +229,45 @@ def make_layout():
     plot_func, source_func = make_plot(source_func, 'Blue')
     plot_diff, source_diff = make_plot(source_diff, 'Black')
 
-    # columns_func = [
-    #     TableColumn(field="table_x", title="x", ),
-    #     TableColumn(field="table_y", title="y", ),
-    # ]
-    #
-    # columns_diff = [
-    #     TableColumn(field="table_x", title="x", ),
-    #     TableColumn(field="table_y", title="y", ),
-    # ]
-
     str_expr = ""
     textinput_expr = TextInput(title="Expression", value="", placeholder="sin(x)^2 + x^2 * y", sizing_mode='scale_width')
 
     str_assign_value = ""
     textinput_assign_value = TextInput(title="assign_value", value=str_assign_value, placeholder="x=3, y=2")
 
-    str_assign_range = ""
-    textinput_assign_range = TextInput(title="assign_range", value=str_assign_range, placeholder="x(0.1, 5)")
+    str_domain_range = ""
+    textinput_domain_range = TextInput(title="domain range", value=str_domain_range, placeholder="x(0.1, 5)")
 
     textinput_result_func = TextInput(title="Calculated Function", value="", disabled=True, width=FIG_WIDTH*2)
     textinput_result_diff = TextInput(title="Differentiated Function", value="", disabled=True, width=FIG_WIDTH*2)
+
+    textinput_function_range = TextInput(title="function's output range", value="(auto, auto)", placeholder="(auto, auto)")
+    textinput_derivative_range = TextInput(title="derivative's output range", value="(auto, auto)", placeholder="(auto, auto)")
 
     button = Button(label="Calculate", button_type="success", width=FIG_WIDTH)
 
     result_list = [textinput_result_func, textinput_result_diff]
     plot_list = [plot_func, plot_diff]
     source_list = [source_func, source_diff]
+
     button.on_click(partial(calculate_handler,
                             plot_list=plot_list,
                             source_list=source_list,
-                            # label_list=label_list,
                             result_list=result_list,
                             expr=textinput_expr,
                             assign_value=textinput_assign_value,
-                            var_range=textinput_assign_range))
-
-    # data_table_func = DataTable(source=source_func, columns=columns_func, width=FIG_WIDTH, height=FIG_HEIGHT, editable=False)
-    # data_table_diff = DataTable(source=source_diff, columns=columns_diff, width=FIG_WIDTH, height=FIG_HEIGHT, editable=False)
+                            var_range=textinput_domain_range,
+                            function_range=textinput_function_range,
+                            derivative_range=textinput_derivative_range,
+                            )
+                    )
 
     lay = layout([
-        [textinput_expr, textinput_assign_value, textinput_assign_range],
+        [textinput_expr, textinput_assign_value, textinput_domain_range],
+        [textinput_function_range, textinput_derivative_range],
         [button],
         [textinput_result_func, textinput_result_diff],
         [plot_func, plot_diff],
-        # [data_table_func, data_table_diff],
     ], sizing_mode='scale_width')
     return lay
 
